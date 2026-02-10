@@ -677,6 +677,30 @@ function buildWalls3D() {
     wallLines3D.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([s, e]),
       new THREE.LineBasicMaterial({ color: col, linewidth: 3 })));
   }
+  
+  // Room outline — extruded from floor to ceiling
+  if (analysisResult.room?.exterior) {
+    const ext = analysisResult.room.exterior;
+    const floorPts = ext.map(p => new THREE.Vector3(p[0], 0.02, p[1]));
+    const ceilPts = ext.map(p => new THREE.Vector3(p[0], wallH, p[1]));
+    wallLines3D.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(floorPts),
+      new THREE.LineBasicMaterial({ color: 0x00E5FF, opacity: 0.4, transparent: true })));
+    wallLines3D.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ceilPts),
+      new THREE.LineBasicMaterial({ color: 0x00E5FF, opacity: 0.15, transparent: true })));
+    // Verticals at corners
+    for (let i = 0; i < ext.length - 1; i++) {
+      const b = new THREE.Vector3(ext[i][0], 0.02, ext[i][1]);
+      const t = new THREE.Vector3(ext[i][0], wallH, ext[i][1]);
+      wallLines3D.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([b, t]),
+        new THREE.LineBasicMaterial({ color: 0x00E5FF, opacity: 0.1, transparent: true })));
+    }
+    // Transparent floor
+    try {
+      const shape = new THREE.Shape(ext.map(p => new THREE.Vector2(p[0], p[1])));
+      const g = new THREE.ShapeGeometry(shape); g.rotateX(-Math.PI/2); g.translate(0, 0.01, 0);
+      wallLines3D.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0x00E5FF, transparent: true, opacity: 0.04, side: THREE.DoubleSide })));
+    } catch(e) {}
+  }
 }
 
 function buildUI() {

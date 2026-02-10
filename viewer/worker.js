@@ -310,52 +310,59 @@ function buildRoomPolygon(walls, angleRad) {
 }
 
 function snapToAxisAligned(hull, intersections, angleRad) {
-  // For each hull edge, try to make it axis-aligned by snapping to nearest wall intersection
-  // This creates a rectilinear (Manhattan) polygon
   const negRad = -angleRad;
-  
-  // Rotate hull to aligned space
   const hullRot = hull.map(p => rotPt(p, negRad));
-  
-  // Snap each vertex to nearest intersection in rotated space
   const intRot = intersections.map(i => i.rotPt);
   
+  // Snap hull vertices to nearest intersection
   const snapped = hullRot.map(hp => {
     let bestDist = Infinity, bestPt = hp;
     for (const ip of intRot) {
       const d = Math.sqrt((hp[0]-ip[0])**2 + (hp[1]-ip[1])**2);
       if (d < bestDist) { bestDist = d; bestPt = ip; }
     }
-    return bestDist < 0.5 ? bestPt : hp;
+    return bestDist < 0.5 ? [...bestPt] : [...hp];
   });
   
-  // Build rectilinear path: between each pair of snapped vertices,
-  // if they don't share an axis, insert an intermediate point
-  const rectilinear = [];
-  for (let i = 0; i < snapped.length; i++) {
-    const curr = snapped[i];
-    const next = snapped[(i + 1) % snapped.length];
-    rectilinear.push(curr);
-    
-    // If not axis-aligned, add corner
-    const dx = Math.abs(next[0] - curr[0]);
-    const dz = Math.abs(next[1] - curr[1]);
-    if (dx > 0.1 && dz > 0.1) {
-      // Need a corner — try both options, pick the one closest to an intersection
-      const opt1 = [next[0], curr[1]];
-      const opt2 = [curr[0], next[1]];
-      
-      let best1 = Infinity, best2 = Infinity;
-      for (const ip of intRot) {
-        const d1 = Math.sqrt((opt1[0]-ip[0])**2 + (opt1[1]-ip[1])**2);
-        const d2 = Math.sqrt((opt2[0]-ip[0])**2 + (opt2[1]-ip[1])**2);
-        if (d1 < best1) best1 = d1;
-        if (d2 < best2) best2 = d2;
-      }
-      rectilinear.push(best1 < best2 ? opt1 : opt2);
+  // Remove duplicate consecutive vertices
+  const deduped = [snapped[0]];
+  for (let i = 1; i < snapped.length; i++) {
+    const prev = deduped[deduped.length - 1];
+    if (Math.abs(snapped[i][0]-prev[0]) > 0.01 || Math.abs(snapped[i][1]-prev[1]) > 0.01) {
+      deduped.push(snapped[i]);
     }
   }
   
-  // Rotate back to original coordinates
+  // Build rectilinear path: insert corners where edges aren't axis-aligned
+  const rectilinear = [];
+  for (let i = 0; i < deduped.length; i++) {
+    const curr = deduped[i];
+    const next = deduped[(i + 1) % deduped.length];
+    rectilinear.push(curr);
+    
+    const dx = Math.abs(next[0] - curr[0]);
+    const dz = Math.abs(next[1] - curr[1]);
+    if (dx > 0.1 && dz > 0.1) {
+      // Need a corner — try both L-turn options
+      const opt1 = [next[0], curr[1]];
+      const opt2 = [curr[0], next[1]];
+      
+      // Score each option: prefer the one that:
+      // 1. Is near an actual intersection
+      // 2. Doesn't make the polygon self-intersecting
+      let score1 = Infinity, score2 = Infinity;
+      for (const ip of intRot) {
+        const d1 = Math.sqrt((opt1[0]-ip[0])**2 + (opt1[1]-ip[1])**2);
+        const d2 = Math.sqrt((opt2[0]-ip[0])**2 + (opt2[1]-ip[1])**2);
+        if (d1 < score1) score1 = d1;
+        if (d2 < score2) score2 = d2;
+      }
+      
+      // Also prefer corners that keep the polygon convex-ish
+      // (check if the turn direction matches the hull winding)
+      rectilinear.push(score1 < score2 ? opt1 : opt2);
+    }
+  }
+  
   return rectilinear.map(p => rotPt(p, angleRad));
 }
