@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mesh2plan v25 — Structured Edge Detection</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a1a2e; color: #eee; font-family: system-ui, sans-serif; padding: 20px; }
+h1 { font-size: 24px; color: #00E5FF; margin-bottom: 8px; }
+.desc { color: #aaa; font-size: 14px; line-height: 1.6; margin-bottom: 20px; max-width: 900px; }
+.results { display: flex; gap: 20px; flex-wrap: wrap; }
+.card { background: rgba(20,20,40,0.8); border-radius: 12px; padding: 16px; border: 1px solid rgba(255,255,255,0.1); flex: 1; min-width: 400px; }
+.card h2 { font-size: 16px; color: #888; margin-bottom: 12px; }
+.card img { width: 100%; border-radius: 8px; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.stat { background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 6px; }
+.stat-label { font-size: 11px; color: #666; text-transform: uppercase; }
+.stat-value { font-size: 18px; font-weight: bold; color: #00E5FF; }
+.badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-right: 6px; }
+.badge-area { background: rgba(0,229,255,0.2); color: #00E5FF; }
+.badge-approach { background: rgba(255,165,0,0.2); color: #FFA500; }
+pre { background: rgba(0,0,0,0.4); padding: 12px; border-radius: 8px; font-size: 12px; overflow-x: auto; margin-top: 12px; color: #ccc; max-height: 400px; overflow-y: auto; }
+a { color: #00E5FF; }
+nav { margin-bottom: 20px; }
+nav a { margin-right: 12px; font-size: 13px; }
+</style>
+</head>
+<body>
+<nav><a href="index.html">← All Versions</a> <a href="v24.html">← v24</a> <a href="v26.html">v26 →</a></nav>
+<h1>v25 — Structured Edge Detection</h1>
+<span class="badge badge-approach">Sobel + Laplacian + Morph Gradient + NMS + Hough + Structural Selection</span>
+<span class="badge badge-area">11.8m²</span>
+<p class="desc">Combines Sobel, Laplacian, and morphological gradient edge detectors, applies non-maximum suppression, then extracts wall segments via Hough transform. Uses v19-style structural polygon construction from wall positions. Successfully detects L-shape (6 vertices) with reasonable area estimate. The multi-edge fusion provides robust wall detection.</p>
+<div class="results">
+  <div class="card">
+    <h2>Floor Plan</h2>
+    <img src="../results/v25_structured_edges/v25_export_refined_floorplan.png" alt="floor plan">
+    <div class="stats">
+      <div class="stat"><div class="stat-label">Area</div><div class="stat-value">11.8m²</div></div>
+      <div class="stat"><div class="stat-label">Target</div><div class="stat-value">10.4m²</div></div>
+      <div class="stat"><div class="stat-label">Walls</div><div class="stat-value">6</div></div>
+      <div class="stat"><div class="stat-label">Vertices</div><div class="stat-value">6</div></div>
+    </div>
+  </div>
+</div>
+<div class="card" style="margin-top:20px;max-width:600px;">
+  <h2>Results JSON</h2>
+  <pre id="json">Loading...</pre>
+</div>
+<script>
+fetch('../results/v25_structured_edges/v25_export_refined_results.json')
+  .then(r=>r.json())
+  .then(j=>document.getElementById('json').textContent=JSON.stringify(j,null,2))
+  .catch(()=>document.getElementById('json').textContent='Failed to load');
+</script>
+</body>
+</html>

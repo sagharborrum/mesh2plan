@@ -479,10 +479,71 @@ header .desc {
     </div>
   </div>
 
+  <div class="section research-versions">
+    <h2>Advanced Research (v23-v26)</h2>
+    <div class="version-grid">
+      <div class="version-card" onclick="window.location.href='v23.html'">
+        <div class="version-header">
+          <div class="version-number">v23</div>
+          <div class="version-title">Signed Distance Field (SDF)</div>
+        </div>
+        <div class="version-desc">
+          KDTree-based SDF from projected vertices. Multi-threshold contour extraction for optimal area. Captures room shape but overestimates due to vertex spread. <strong>12.5m²</strong>
+        </div>
+        <div class="version-meta">
+          <span class="version-tech">Python • KDTree • SDF • Contour</span>
+          <span class="quality-stars">⭐⭐⭐⭐⭐⭐</span>
+        </div>
+      </div>
+
+      <div class="version-card" onclick="window.location.href='v24.html'">
+        <div class="version-header">
+          <div class="version-number">v24</div>
+          <div class="version-title">Occupancy Grid + Graph Cut</div>
+        </div>
+        <div class="version-desc">
+          Density-based occupancy grid with iterative morphological boundary refinement using rectilinear structural elements. Undershoots area. <strong>5.7m²</strong>
+        </div>
+        <div class="version-meta">
+          <span class="version-tech">Python • Morphology • ICM</span>
+          <span class="quality-stars">⭐⭐⭐⭐⭐</span>
+        </div>
+      </div>
+
+      <div class="version-card" onclick="window.location.href='v25.html'">
+        <div class="version-header">
+          <div class="version-number">v25</div>
+          <div class="version-title">Structured Edge Detection</div>
+        </div>
+        <div class="version-desc">
+          Fuses Sobel, Laplacian, and morphological gradient edges. NMS + Hough wall extraction + structural polygon. Clean 6-vertex L-shape. <strong>11.8m²</strong>
+        </div>
+        <div class="version-meta">
+          <span class="version-tech">Python • Multi-Edge • NMS • Hough</span>
+          <span class="quality-stars">⭐⭐⭐⭐⭐⭐⭐</span>
+        </div>
+      </div>
+
+      <div class="version-card" onclick="window.location.href='v26.html'">
+        <div class="version-header">
+          <div class="version-number">v26</div>
+          <div class="version-title">Poisson-style Surface Slice</div>
+        </div>
+        <div class="version-desc">
+          Delaunay triangulation + alpha filtering for concave hull boundary. Multi-alpha search for optimal room outline. <strong>11.2m²</strong>
+        </div>
+        <div class="version-meta">
+          <span class="version-tech">Python • Delaunay • Alpha Shape</span>
+          <span class="quality-stars">⭐⭐⭐⭐⭐⭐</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="footer">
     <div class="stats">
       <div class="stat">
-        <div class="num">24</div>
+        <div class="num">28</div>
         <div class="label">Approaches</div>
       </div>
       <div class="stat">
@@ -490,7 +551,7 @@ header .desc {
         <div class="label">Interactive</div>
       </div>
       <div class="stat">
-        <div class="num">15</div>
+        <div class="num">19</div>
         <div class="label">Research</div>
       </div>
     </div>
