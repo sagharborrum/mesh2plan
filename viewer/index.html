@@ -72,9 +72,10 @@ body { background: #1a1a2e; color: #eee; font-family: system-ui, sans-serif; ove
     <div class="btn-row">
       <button onclick="exportSVG()">⬇ SVG</button>
       <button onclick="exportDXF()">⬇ DXF</button>
+      <button onclick="exportPNG()">📸 PNG</button>
       <button onclick="toggleUnits()">📏 m/ft</button>
-      <button onclick="toggleTheme()">🌓 Theme</button>
-      <button onclick="loadDemo()">📦 Demo</button>
+      <button onclick="toggleTheme()">🌓</button>
+      <button onclick="loadDemo()">📦</button>
     </div>
     <div id="stats"></div>
   </div>
@@ -1003,6 +1004,19 @@ window.exportSVG = () => {
 
 window.toggleUnits = () => { useMetric = !useMetric; drawFP(); updateStats(); };
 window.toggleTheme = () => { darkTheme = !darkTheme; drawFP(); };
+window.exportPNG = () => {
+  const canvas = document.getElementById('fpCanvas');
+  const a = document.createElement('a');
+  a.download = 'floorplan.png';
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+};
+window.exportJSON = () => {
+  if (!analysisResult) return;
+  const blob = new Blob([JSON.stringify(analysisResult, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'floorplan.json'; a.click();
+};
 
 window.loadDemo = async () => {
   progress('Loading demo scan...');
