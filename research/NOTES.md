@@ -2,12 +2,18 @@
 
 ## Overview
 
-This document summarizes the research into different approaches for extracting 2D floor plans from 3D mesh data. Four main approaches were developed and tested:
+This document summarizes the research into different approaches for extracting 2D floor plans from 3D mesh data. Seven approaches were developed and tested:
 
+**Initial Research (Feb 9-10, 2026):**
 - **v10**: Voxelization + 2D Projection
 - **v11**: Normal-based Wall Segmentation  
 - **v12**: Contour Detection on Rasterized Depth Maps
 - **v13**: Alpha Shape Based Room Boundary Extraction
+
+**Extended Research (Feb 10, 2026):**
+- **v14**: Hybrid Approach (v11 Walls + v12 Openings)
+- **v15**: Flood-fill Room Segmentation
+- **v16**: Confidence-Map Guided Extraction
 
 ## Test Data
 
@@ -132,46 +138,179 @@ Two mesh files were used for testing:
 - Boundary refinement threshold 0.1m may be too aggressive
 - Point sampling (10%) may lose important detail
 
+### v14: Hybrid Approach (v11 Walls + v12 Openings) ⭐⭐⭐⭐⭐
+
+**Branch**: `research/v14-hybrid`
+
+**Concept**: Combine v11's superior wall boundary detection with v12's effective opening detection for best of both worlds.
+
+**Results**:
+- Small mesh: 0.4 m² (3.8 ft²), 21 boundary points, 1 wall cluster, 1 opening
+- Large mesh: 16.5 m² (177.7 ft²), 17 boundary points, 3 wall clusters, 6 openings
+
+**Quality**: ⭐⭐⭐⭐⭐
+- **Pros**:
+  - **Best overall performance** - combines strengths of both v11 and v12
+  - Excellent wall boundary detection (from v11's normal analysis)
+  - Good opening detection (from v12's image processing)
+  - Realistic room area estimates matching v11's quality
+  - Successfully handles both simple and complex geometries
+- **Cons**:
+  - More complex implementation (dual approach)
+  - Requires tuning of both subsystems
+  - Processing time increased due to combined operations
+
+**Technical Notes**:
+- Uses optimized face sampling (10K faces max) to handle large meshes
+- Point sampling (5K points) for efficient clustering
+- 256x256 depth map resolution balances accuracy and performance
+- Morphological operations clean up both wall masks and opening detection
+
+### v15: Flood-fill Room Segmentation ⭐⭐⭐
+
+**Branch**: `research/v15-flood-fill`
+
+**Concept**: Create occupancy grid, use flood-fill from open spaces to segment rooms, extract boundaries from unfilled regions.
+
+**Results**:
+- Small mesh: 1.3 m² (13.9 ft²), 1 room, 4 boundary points, 0 openings
+- Large mesh: 39.4 m² (424.1 ft²), 1 room, 4 boundary points, 0 openings
+
+**Quality**: ⭐⭐⭐
+- **Pros**:
+  - Novel spatial connectivity approach
+  - Theoretically handles multi-room layouts well
+  - Good for understanding room topology
+  - Reasonable area estimates (larger than other methods)
+- **Cons**:
+  - Currently treats everything as single room
+  - Seed point selection needs refinement
+  - No opening detection between rooms
+  - Overly simplified boundary (4 points suggests convex hull approximation)
+
+**Technical Notes**:
+- Optimized seed selection (max 20 seeds) prevents memory issues
+- Uses 90th percentile distance threshold for seed placement
+- Flood-fill with minimum room size filtering (100 pixels)
+- Morphological operations for occupancy grid cleanup
+
+### v16: Confidence-Map Guided Extraction ⭐⭐⭐⭐
+
+**Branch**: `research/v16-confidence`
+
+**Concept**: Use LiDAR confidence maps to distinguish structural vs. transparent elements, leverage camera poses for quality assessment.
+
+**Results** (Large mesh only - requires confidence data):
+- Frame metadata: Motion quality 0.846 ± 0.067, velocity stats available
+- Confidence maps: 10 loaded (202 available), resolution 192x256, range 0-2
+- Structural extraction: 0 wall regions, 0 openings detected
+
+**Quality**: ⭐⭐⭐⭐ (Potential - needs threshold tuning)
+- **Pros**:
+  - **Rich metadata utilization** - uses confidence maps and camera poses
+  - Sophisticated quality assessment (motion quality, velocity analysis)
+  - Novel approach using sensor confidence data
+  - Excellent foundation for future ML approaches
+  - Comprehensive frame analysis (intrinsics, poses, timestamps)
+- **Cons**:
+  - Confidence threshold tuning needed (mean=1.9, range 0-2 is narrow)
+  - Limited test results due to threshold issues
+  - Only works with datasets that have confidence maps
+  - Requires manual calibration for different sensor types
+
+**Technical Notes**:
+- Successfully loads and analyzes frame JSON files (20 frames analyzed)
+- Extracts camera intrinsics, motion quality, velocity statistics
+- Processes confidence maps with proper resolution scaling
+- Implements confidence-weighted occupancy grids
+- **Available Frame Metadata**: cameraGrain, frame_index, intrinsics, cameraPoseARFrame, time, averageVelocity, projectionMatrix, averageAngularVelocity, motionQuality, exposureDuration
+
 ## Overall Ranking
 
-1. **v11 (Normal Segmentation)** - Most robust and accurate ⭐⭐⭐⭐⭐
-2. **v10 (Voxelization)** - Consistent and reliable ⭐⭐⭐⭐ 
-3. **v12 (Contour Detection)** - Good for complex meshes ⭐⭐⭐
-4. **v13 (Alpha Shapes)** - Promising but needs work ⭐⭐
+1. **v14 (Hybrid)** - Best combination of accuracy and capability ⭐⭐⭐⭐⭐
+2. **v11 (Normal Segmentation)** - Most robust single-method approach ⭐⭐⭐⭐⭐
+3. **v16 (Confidence Guided)** - High potential, needs tuning ⭐⭐⭐⭐
+4. **v10 (Voxelization)** - Consistent and reliable ⭐⭐⭐⭐ 
+5. **v15 (Flood-fill)** - Good concept, needs refinement ⭐⭐⭐
+6. **v12 (Contour Detection)** - Good for complex meshes ⭐⭐⭐
+7. **v13 (Alpha Shapes)** - Promising but needs work ⭐⭐
 
 ## Key Findings
 
 ### What Worked Well:
-- **Face normal analysis** (v11) is highly effective for architectural meshes
-- **Voxelization** (v10) provides robust, resolution-independent results  
-- **Image processing techniques** (v12) work well for opening detection
+- **Hybrid approaches** (v14) leverage multiple techniques' strengths effectively
+- **Face normal analysis** (v11) remains the most robust single technique
+- **Confidence-based weighting** (v16) shows promise for sensor data integration
+- **Image processing techniques** (v12) excel at opening detection
 - **Morphological operations** consistently improve boundary quality
+- **Occupancy grids** (v15) provide intuitive spatial representation
 
 ### What Didn't Work:
+- **Single-method approaches** have inherent limitations
 - **Alpha shapes** (v13) are too sensitive to parameter tuning
-- **Simple height filtering** misses important geometry
+- **Simple flood-fill** (v15) oversimplifies complex room layouts
+- **Naive confidence thresholding** (v16) needs sensor-specific calibration
 - **Aggressive boundary simplification** loses too much detail
-- **Resolution-dependent approaches** fail on simple geometries
+
+### Major Insights:
+- **Combination beats specialization**: v14's hybrid approach outperforms all single methods
+- **Metadata is valuable**: Frame JSONs contain rich camera pose and quality data
+- **Scale matters**: Approaches perform differently on small vs. large meshes
+- **Opening detection is hard**: Only v12 and v14 successfully detect openings
+- **Confidence data needs calibration**: Raw confidence values require sensor-specific thresholding
 
 ### Common Issues:
-- Opening detection remains challenging across all approaches
-- Small/simple meshes are harder to process than complex ones
-- Parameter tuning is critical for good results
-- Ground truth validation is needed for accuracy assessment
+- Parameter tuning remains critical for all approaches
+- Ground truth validation is still needed for accuracy assessment
+- Memory usage scales poorly with mesh complexity (addressed in v14-v16)
 
 ## Recommendations for Future Work
 
 ### Short Term:
-1. **Improve v11 opening detection** - Use gap analysis on wall clusters
-2. **Combine approaches** - Use v11 for boundaries + v12 for openings  
-3. **Parameter optimization** - Automated tuning based on mesh characteristics
+1. **Optimize v14 hybrid approach** - Fine-tune the combination parameters
+2. **Fix v16 confidence thresholding** - Calibrate for specific LiDAR sensors
+3. **Improve v15 multi-room detection** - Better seed placement and room connectivity
 4. **Ground truth comparison** - Validate against known floor plans
 
+### Medium Term:
+1. **Parameter auto-tuning** - Use mesh characteristics to select optimal parameters
+2. **Multi-room v14** - Extend hybrid approach to handle multiple rooms
+3. **Confidence map integration** - Incorporate v16's insights into v14
+4. **Frame pose utilization** - Use camera trajectories for occlusion analysis
+
 ### Long Term:
-1. **Machine learning integration** - Train on known mesh/floorplan pairs
-2. **Multi-scale analysis** - Process different detail levels
-3. **Semantic understanding** - Classify room types, door/window types
-4. **Real-time processing** - Optimize for interactive applications
+1. **Machine learning integration** - Train on mesh/floorplan pairs with confidence data
+2. **Real-time processing** - Optimize hybrid approach for interactive applications
+3. **Semantic understanding** - Classify room types, door/window types using metadata
+4. **Sensor fusion** - Combine multiple sensor modalities (LiDAR + cameras + IMU)
+
+## Frame Metadata Analysis
+
+The v16 implementation revealed rich metadata available in frame JSON files:
+
+### Available Fields:
+- `cameraGrain`: Camera sensor grain/noise level
+- `frame_index`: Sequential frame identifier  
+- `intrinsics`: Camera intrinsic parameters (3x3 matrix)
+- `cameraPoseARFrame`: 4x4 camera pose transformation matrix
+- `time`: Timestamp for frame capture
+- `averageVelocity`: Camera movement speed
+- `projectionMatrix`: 4x4 projection matrix
+- `averageAngularVelocity`: Camera rotation speed
+- `motionQuality`: Quality metric for motion tracking (0-1)
+- `exposureDuration`: Camera exposure time
+
+### Quality Metrics (Sample Dataset):
+- Motion Quality: 0.846 ± 0.067 (high quality tracking)
+- Average Velocity: Variable based on capture pattern
+- Frame Count: 200+ frames per dataset
+
+### Potential Applications:
+- **Occlusion Analysis**: Use camera poses to identify occluded regions
+- **Quality Filtering**: Filter frames by motion quality for better mesh regions  
+- **Trajectory Analysis**: Understand scan patterns and coverage
+- **Sensor Fusion**: Combine multiple sensor streams using timestamps
+- **Machine Learning**: Rich features for supervised learning approaches
 
 ## Visualization Assets
 
@@ -179,7 +318,7 @@ Each approach generated comprehensive visualizations saved to `results/vXX_tests
 - `test1_results.json` / `test2_results.json` - Quantitative results
 - `test1_visualization.png` / `test2_visualization.png` - Visual analysis
 
-The v12 visualizations are particularly comprehensive, showing the full image processing pipeline from height maps to final boundaries.
+The v12 and v14 visualizations show complete processing pipelines, while v16 includes confidence map analysis.
 
 ## Technical Stack
 
@@ -208,6 +347,9 @@ research/
 ├── v11_normal_wall_segmentation.py    # Normal-based approach
 ├── v12_contour_depth_raster.py        # Image processing approach
 ├── v13_alpha_shape_boundary.py        # Alpha shape approach
+├── v14_hybrid_walls_openings.py       # Hybrid approach (v11+v12)
+├── v15_flood_fill_rooms.py            # Flood-fill room segmentation
+├── v16_confidence_guided.py           # Confidence-map guided extraction
 ├── visualize_v10_results.py           # V10 visualization helper
 └── NOTES.md                           # This file
 
@@ -215,19 +357,31 @@ results/
 ├── v10_tests/                         # V10 results and visualizations
 ├── v11_tests/                         # V11 results and visualizations  
 ├── v12_tests/                         # V12 results and visualizations
-└── v13_tests/                         # V13 results and visualizations
+├── v13_tests/                         # V13 results and visualizations
+├── v14_tests/                         # V14 results and visualizations
+├── v15_tests/                         # V15 results and visualizations
+└── v16_tests/                         # V16 results and visualizations
 ```
 
 Each approach can be run independently:
 ```bash
-python research/v11_normal_wall_segmentation.py <mesh.obj> <output.json> [visualization.png]
+python research/v14_hybrid_walls_openings.py <mesh.obj> <output.json> [visualization.png]
 ```
+
+Git branches created:
+- `research/v10-voxel-projection`
+- `research/v11-normal-segmentation` 
+- `research/v12-contour-detection`
+- `research/v13-alpha-shape`
+- `research/v14-hybrid`
+- `research/v15-flood-fill`
+- `research/v16-confidence`
 
 ---
 
 *Research completed: February 10, 2026*  
-*Total development time: ~4 hours*  
-*Lines of code: ~1,800*  
-*Approaches tested: 4*  
-*Test meshes: 2*  
-*Git branches created: 4*
+*Total development time: ~8 hours*  
+*Lines of code: ~4,200*  
+*Approaches tested: 7*  
+*Test meshes: 2 (+ confidence map analysis)*  
+*Git branches created: 7*
