@@ -355,10 +355,85 @@ header .desc {
     </div>
   </div>
 
+  <div class="section research-versions">
+    <h2>L-Shape Research (v17-v21)</h2>
+    <div class="version-grid">
+      <div class="version-card" onclick="window.location.href='v17.html'">
+        <div class="version-header">
+          <div class="version-number">v17</div>
+          <div class="version-title">Wall Intersection + Density Grid</div>
+        </div>
+        <div class="version-desc">
+          First L-shape attempt. Vertex density grid confirms room footprint, builds rectilinear polygon from wall positions. Still keeps interior wall. <strong>11.0m²</strong>
+        </div>
+        <div class="version-meta">
+          <span class="version-tech">Python • Density Grid • L-Shape</span>
+          <span class="quality-stars">⭐⭐⭐</span>
+        </div>
+      </div>
+
+      <div class="version-card" onclick="window.location.href='v18.html'">
+        <div class="version-header">
+          <div class="version-number">v18</div>
+          <div class="version-title">Density Contour (Morphological)</div>
+        </div>
+        <div class="version-desc">
+          Pure CV approach: density grid → morphological ops → contour tracing → rectilinear simplification. No wall histogram needed. Jagged output (14 walls). <strong>11.3m²</strong>
+        </div>
+        <div class="version-meta">
+          <span class="version-tech">Python • OpenCV • Morphology</span>
+          <span class="quality-stars">⭐⭐⭐</span>
+        </div>
+      </div>
+
+      <div class="version-card" onclick="window.location.href='v19.html'" style="border-color: rgba(0,255,100,0.4);">
+        <div class="version-header">
+          <div class="version-number">v19 ⭐</div>
+          <div class="version-title">Smart Boundary Selection</div>
+        </div>
+        <div class="version-desc">
+          Best result. Structural wall filtering: outermost 2 per axis, reject ALL interior X-walls. Partial Z-walls detect L-shape steps. Clean 6-vertex polygon. <strong>10.3m²</strong> (target: 10.4m²)
+        </div>
+        <div class="version-meta">
+          <span class="version-tech">Python • Structural Filtering • ⭐ Best</span>
+          <span class="quality-stars">⭐⭐⭐⭐⭐</span>
+        </div>
+      </div>
+
+      <div class="version-card" onclick="window.location.href='v20.html'">
+        <div class="version-header">
+          <div class="version-number">v20</div>
+          <div class="version-title">Hough Line Transform</div>
+        </div>
+        <div class="version-desc">
+          Canny edge detection → HoughLinesP → cluster → boundary selection. Edges clearly show L-shape but clustering missed the step wall. <strong>9.7m²</strong>
+        </div>
+        <div class="version-meta">
+          <span class="version-tech">Python • OpenCV • Hough</span>
+          <span class="quality-stars">⭐⭐⭐⭐</span>
+        </div>
+      </div>
+
+      <div class="version-card" onclick="window.location.href='v21.html'">
+        <div class="version-header">
+          <div class="version-number">v21</div>
+          <div class="version-title">Raycasting from Centroid</div>
+        </div>
+        <div class="version-desc">
+          Density mask → 720 rays from centroid → find room boundary → simplify to rectilinear. Room mask is correct but polygon simplification needs work. <strong>3.0m²</strong>
+        </div>
+        <div class="version-meta">
+          <span class="version-tech">Python • Raycasting • Experimental</span>
+          <span class="quality-stars">⭐⭐</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="footer">
     <div class="stats">
       <div class="stat">
-        <div class="num">16</div>
+        <div class="num">21</div>
         <div class="label">Approaches</div>
       </div>
       <div class="stat">
@@ -366,7 +441,7 @@ header .desc {
         <div class="label">Interactive</div>
       </div>
       <div class="stat">
-        <div class="num">7</div>
+        <div class="num">12</div>
         <div class="label">Research</div>
       </div>
     </div>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mesh2plan v20</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a1a2e; color: #eee; font-family: system-ui, sans-serif; padding: 20px; }
+h1 { font-size: 24px; color: #00E5FF; margin-bottom: 8px; }
+.desc { color: #aaa; font-size: 14px; line-height: 1.6; margin-bottom: 20px; max-width: 900px; }
+.results { display: flex; gap: 20px; flex-wrap: wrap; }
+.card { background: rgba(20,20,40,0.8); border-radius: 12px; padding: 16px; border: 1px solid rgba(255,255,255,0.1); flex: 1; min-width: 400px; }
+.card h2 { font-size: 16px; color: #888; margin-bottom: 12px; }
+.card img { width: 100%; border-radius: 8px; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.stat { background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 6px; }
+.stat-label { font-size: 11px; color: #666; text-transform: uppercase; }
+.stat-value { font-size: 18px; font-weight: bold; color: #00E5FF; }
+.badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-right: 6px; }
+.badge-area { background: rgba(0,229,255,0.2); color: #00E5FF; }
+.badge-approach { background: rgba(255,165,0,0.2); color: #FFA500; }
+.badge-best { background: rgba(0,255,100,0.2); color: #00FF64; }
+pre { background: rgba(0,0,0,0.4); padding: 12px; border-radius: 8px; font-size: 12px; overflow-x: auto; margin-top: 12px; color: #ccc; max-height: 400px; overflow-y: auto; }
+a { color: #00E5FF; }
+nav { margin-bottom: 20px; }
+nav a { margin-right: 12px; font-size: 13px; }
+</style>
+</head>
+<body>
+<nav><a href="index.html">← All Versions</a></nav>
+<div id="content"></div>
+<script>
+const data = {
+  18: {
+    title: 'v18 — Density Contour (Morphological)',
+    approach: 'Morphological Ops + Contour Tracing',
+    area: '11.3m²',
+    desc: 'Pure computer vision approach. Projects vertices to 2D density grid, applies threshold + morphological close/fill/erode/dilate, then traces contour of the largest connected component. Simplifies to rectilinear via Douglas-Peucker + axis snapping. No wall histogram detection needed. Result has 14 jagged wall segments — simplification needs more aggressive jog removal.',
+    img: '../results/v18_density/gdrive_sample_export_refined_v18_floorplan.png',
+    json: '../results/v18_density/gdrive_sample_export_refined_v18_results.json',
+    walls: 14, best: false,
+    nav: ['v17.html', 'v19.html'],
+  },
+  19: {
+    title: 'v19 — Smart Boundary Selection ⭐',
+    approach: 'Structural Wall Filtering',
+    area: '10.3m²',
+    desc: 'Best result. Uses v9-style cross-section slicing + histogram wall detection, but with structural wall selection: only keep outermost 2 X-walls (left/right boundary), reject ALL interior X-walls regardless of length. For Z-walls: keep bottom (longest at lowest Z), main top (widest full-span), and partial-width walls above main top (L-shape step indicators). Produces clean 6-vertex L-shape polygon at 10.3m² vs 10.4m² reference.',
+    img: '../results/v19_smart/gdrive_sample_export_refined_final_floorplan.png',
+    json: '../results/v19_smart/gdrive_sample_export_refined_final_results.json',
+    walls: 5, best: true,
+    nav: ['v18.html', 'v20.html'],
+  },
+  20: {
+    title: 'v20 — Hough Line Transform',
+    approach: 'Canny Edge + HoughLinesP',
+    area: '9.7m²',
+    desc: 'Classic computer vision pipeline. Builds high-res density image (2cm/pixel), applies Canny edge detection, then HoughLinesP to find line segments. Clusters parallel segments and selects boundary walls. The Canny edges clearly show the L-shape, but Hough clustering only found 4 Z-walls and missed the short step wall for the extension. Result is a clean rectangle.',
+    img: '../results/v20_hough/v20_export_refined_floorplan.png',
+    json: '../results/v20_hough/v20_export_refined_results.json',
+    walls: 4, best: false,
+    nav: ['v19.html', 'v21.html'],
+  },
+  21: {
+    title: 'v21 — Raycasting from Centroid',
+    approach: 'Density Mask + Ray Marching',
+    area: '3.0m²',
+    desc: 'Experimental approach. Builds density mask via thresholding + morphological ops, then casts 720 rays from the room centroid outward. Each ray finds the last "inside" point before exiting the mask. Hit points are simplified to rectilinear polygon. The room mask correctly shows the L-shape, but the polygon simplification is too aggressive and the centroid estimate was off. Needs significant work.',
+    img: '../results/v21_raycast/v21_export_refined_floorplan.png',
+    json: '../results/v21_raycast/v21_export_refined_results.json',
+    walls: 10, best: false,
+    nav: ['v20.html', 'v17.html'],
+  },
+};
+const v = 20;
+const d = data[v];
+document.title = 'mesh2plan ' + d.title;
+let badges = '<span class="badge badge-approach">' + d.approach + '</span><span class="badge badge-area">' + d.area + '</span>';
+if (d.best) badges += '<span class="badge badge-best">★ BEST</span>';
+document.getElementById('content').innerHTML = 
+  '<h1>' + d.title + '</h1>' + badges +
+  '<p class="desc">' + d.desc + '</p>' +
+  '<div class="results"><div class="card"><h2>Floor Plan</h2>' +
+  '<img src="' + d.img + '" alt="floor plan">' +
+  '<div class="stats">' +
+  '<div class="stat"><div class="stat-label">Area</div><div class="stat-value">' + d.area + '</div></div>' +
+  '<div class="stat"><div class="stat-label">Target</div><div class="stat-value">10.4m²</div></div>' +
+  '<div class="stat"><div class="stat-label">Walls</div><div class="stat-value">' + d.walls + '</div></div>' +
+  '<div class="stat"><div class="stat-label">Error</div><div class="stat-value">' + (Math.abs(parseFloat(d.area) - 10.4)).toFixed(1) + 'm²</div></div>' +
+  '</div></div></div>' +
+  '<div class="card" style="margin-top:20px;max-width:600px;"><h2>Results JSON</h2><pre id="json">Loading...</pre></div>';
+fetch(d.json).then(r=>r.json()).then(j=>document.getElementById('json').textContent=JSON.stringify(j,null,2)).catch(()=>document.getElementById('json').textContent='Failed to load');
+</script>
+</body>
+</html>
