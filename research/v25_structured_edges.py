@@ -212,54 +212,121 @@ def cluster_positions(positions, dist_threshold=0.15):
 
 
 def build_polygon_from_walls(x_walls, z_walls, rx, rz):
-    """Build rectilinear polygon from wall positions using structural selection (v19-style)."""
+    """Build rectilinear polygon from wall positions using structural selection (v19/v22-style).
+    
+    Strategy: outermost 2 X-walls (left/right), reject all interior X-walls.
+    For Z: bottom (lowest), main top (second-highest or where left side ends),
+    extension top (highest), step X (interior X-wall where room steps).
+    """
     if len(x_walls) < 2 or len(z_walls) < 2:
-        # Fallback: use bounding box
         return [[rx.min(), rz.min()], [rx.max(), rz.min()], [rx.max(), rz.max()], [rx.min(), rz.max()]]
     
-    # Outermost walls
+    # Outermost X walls only
     left_x, right_x = x_walls[0], x_walls[-1]
-    bottom_z, top_z = z_walls[0], z_walls[-1]
     
-    # Check for L-shape: any Z-wall between bottom and top?
-    mid_z = [z for z in z_walls if z > bottom_z + 0.3 and z < top_z - 0.3]
+    # Bottom Z: lowest
+    bottom_z = z_walls[0]
     
-    # Check for step X-wall
-    mid_x = [x for x in x_walls if x > left_x + 0.3 and x < right_x - 0.3]
+    # For L-shape detection, check vertex density to find where the room steps
+    # Build a coarse density grid
+    cell = 0.1
+    x_min_g, z_min_g = rx.min(), rz.min()
+    nx_g = int((rx.max() - x_min_g) / cell) + 1
+    nz_g = int((rz.max() - z_min_g) / cell) + 1
+    grid = np.zeros((nz_g, nx_g))
+    xi = np.clip(((rx - x_min_g) / cell).astype(int), 0, nx_g - 1)
+    zi = np.clip(((rz - z_min_g) / cell).astype(int), 0, nz_g - 1)
+    np.add.at(grid, (zi, xi), 1)
     
-    if mid_z and mid_x:
-        # L-shape: pick the step
-        step_z = mid_z[0]  # first intermediate Z
-        step_x = mid_x[0]  # first intermediate X
+    # Find where left side ends vs right side (for L-shape)
+    left_col = max(0, int((left_x - x_min_g) / cell) + 2)
+    right_col = min(nx_g - 1, int((right_x - x_min_g) / cell) - 2)
+    
+    left_top_row = 0
+    if left_col < nx_g:
+        col = grid[:, min(left_col, nx_g-1)]
+        occupied = np.where(col > 0)[0]
+        if len(occupied): left_top_row = occupied.max()
+    
+    right_top_row = 0
+    if right_col >= 0:
+        col = grid[:, max(right_col, 0)]
+        occupied = np.where(col > 0)[0]
+        if len(occupied): right_top_row = occupied.max()
+    
+    left_top_z = z_min_g + left_top_row * cell
+    right_top_z = z_min_g + right_top_row * cell
+    
+    # If significant difference → L-shape
+    if abs(right_top_z - left_top_z) > 0.3:
+        # Main top = shorter side, extension top = taller side
+        if right_top_z > left_top_z:
+            # Extension on right side
+            main_top_target = left_top_z
+            ext_top_target = right_top_z
+        else:
+            main_top_target = right_top_z
+            ext_top_target = left_top_z
         
-        # Determine L orientation by checking vertex density
-        # Check if more vertices are in upper-right or upper-left
-        upper_right = np.sum((rx > step_x) & (rz > step_z))
-        upper_left = np.sum((rx < step_x) & (rz > step_z))
+        # Snap to nearest Z-walls
+        def snap_to(target, walls, tolerance=0.3):
+            best, best_d = target, tolerance
+            for w in walls:
+                d = abs(w - target)
+                if d < best_d:
+                    best, best_d = w, d
+            return best
         
-        if upper_right > upper_left:
-            # Extension is on the right
+        main_top_z = snap_to(main_top_target, z_walls)
+        ext_top_z = snap_to(ext_top_target, z_walls)
+        
+        # Find step X: scan columns to find transition
+        # The step X is where columns stop extending above main_top
+        main_top_row_idx = int((main_top_z - z_min_g) / cell)
+        step_x_target = None
+        
+        if right_top_z > left_top_z:
+            # Scan from right to left, find where room stops extending above main top
+            for ci in range(right_col, left_col, -1):
+                if main_top_row_idx + 2 < nz_g and grid[main_top_row_idx + 2, ci] > 0:
+                    pass  # still in extension
+                else:
+                    step_x_target = x_min_g + ci * cell
+                    break
+        else:
+            # Scan from left to right
+            for ci in range(left_col, right_col):
+                if main_top_row_idx + 2 < nz_g and grid[main_top_row_idx + 2, ci] > 0:
+                    pass
+                else:
+                    step_x_target = x_min_g + ci * cell
+                    break
+        
+        if step_x_target:
+            # Snap to nearest interior X-wall
+            interior_x = [x for x in x_walls if x > left_x + 0.3 and x < right_x - 0.3]
+            step_x = snap_to(step_x_target, interior_x) if interior_x else step_x_target
+        else:
+            step_x = (left_x + right_x) / 2
+        
+        if right_top_z > left_top_z:
             polygon = [
                 [left_x, bottom_z], [right_x, bottom_z],
-                [right_x, top_z], [step_x, top_z],
-                [step_x, step_z], [left_x, step_z],
+                [right_x, ext_top_z], [step_x, ext_top_z],
+                [step_x, main_top_z], [left_x, main_top_z],
             ]
         else:
             polygon = [
                 [left_x, bottom_z], [right_x, bottom_z],
-                [right_x, step_z], [step_x, step_z],
-                [step_x, top_z], [left_x, top_z],
+                [right_x, main_top_z], [step_x, main_top_z],
+                [step_x, ext_top_z], [left_x, ext_top_z],
             ]
-    elif mid_z:
-        step_z = mid_z[0]
-        # Simple L with full-width bottom and partial top
-        polygon = [
-            [left_x, bottom_z], [right_x, bottom_z],
-            [right_x, top_z], [(left_x+right_x)/2, top_z],
-            [(left_x+right_x)/2, step_z], [left_x, step_z],
-        ]
+        
+        print(f"  L-shape: main_top={main_top_z:.2f}, ext_top={ext_top_z:.2f}, step_x={step_x:.2f}")
     else:
         # Rectangle
+        top_z = z_walls[-1]
+        # Snap to nearest
         polygon = [
             [left_x, bottom_z], [right_x, bottom_z],
             [right_x, top_z], [left_x, top_z],
