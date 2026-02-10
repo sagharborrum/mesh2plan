@@ -4,7 +4,7 @@
 self.onmessage = function(e) {
   const { triangles, meshBounds } = e.data;
   
-  self.postMessage({ type: 'progress', msg: `Analyzing ${triangles.length} triangles...` });
+  self.postMessage({ type: 'progress', msg: `Analyzing ${triangles.length} triangles...`, pct: 5 });
   
   const nSlices = 20;
   const yMin = meshBounds.min.y, yMax = meshBounds.max.y;
@@ -20,7 +20,7 @@ self.onmessage = function(e) {
     if (pts.length < 4) continue;
     allXZ.push(...pts);
     slices.push({ height: y, points: pts, n: pts.length });
-    self.postMessage({ type: 'progress', msg: `Slice ${i+1}/${nSlices}: ${pts.length} pts` });
+    self.postMessage({ type: 'progress', msg: `Slice ${i+1}/${nSlices}: ${pts.length} pts`, pct: 5 + 50 * (i+1)/nSlices });
   }
   
   if (allXZ.length < 50) {
@@ -28,13 +28,13 @@ self.onmessage = function(e) {
     return;
   }
   
-  self.postMessage({ type: 'progress', msg: `Finding dominant angle (${allXZ.length} pts)...` });
+  self.postMessage({ type: 'progress', msg: `Finding dominant angle (${allXZ.length} pts)...`, pct: 60 });
   
   const angle = findDominantAngle(allXZ);
   const angleRad = angle * Math.PI / 180;
   const rotated = allXZ.map(p => rotPt(p, -angleRad));
   
-  self.postMessage({ type: 'progress', msg: `Finding walls at ${angle}°...` });
+  self.postMessage({ type: 'progress', msg: `Finding walls at ${angle}°...`, pct: 80 });
   
   const xWalls = findWalls(rotated, 0);
   const zWalls = findWalls(rotated, 1);
@@ -55,7 +55,7 @@ self.onmessage = function(e) {
   let room = buildRoomPolygon(walls, angleRad);
   
   // Gaps
-  self.postMessage({ type: 'progress', msg: 'Detecting openings...' });
+  self.postMessage({ type: 'progress', msg: 'Detecting openings...', pct: 95 });
   const gaps = detectGaps(walls, rotated, angle);
   
   self.postMessage({ type: 'result', data: { walls, room, gaps, slices, angle, allXZ, rotated } });

@@ -49,6 +49,7 @@ body { background: #1a1a2e; color: #eee; font-family: system-ui, sans-serif; ove
   <div class="drop-hint" id="dropHint">Drop 3D mesh here (OBJ / GLB / PLY / STL) — or click to browse</div>
   <input type="file" id="fileInput" accept=".obj,.glb,.gltf,.ply,.stl" style="display:none" multiple>
   <div id="progress"></div>
+  <div id="progressBar" style="width:300px;height:4px;background:rgba(255,255,255,0.06);border-radius:2px;margin-top:12px;overflow:hidden;display:none"><div id="progressFill" style="width:0%;height:100%;background:#00E5FF;border-radius:2px;transition:width 0.3s"></div></div>
 </div>
 <div id="container">
   <div id="view3d">
@@ -236,9 +237,12 @@ async function loadOBJWithTexture(objFile, mtlFile, texFiles) {
   }
 }
 
-function progress(msg) {
+function progress(msg, pct) {
   document.getElementById('progress').textContent = msg;
-  console.log(msg);
+  const bar = document.getElementById('progressBar');
+  const fill = document.getElementById('progressFill');
+  if (pct !== undefined) { bar.style.display = 'block'; fill.style.width = pct + '%'; }
+  else if (!msg) { bar.style.display = 'none'; }
 }
 
 async function loadOBJ(file) {
@@ -300,7 +304,7 @@ function setupMesh(obj, hasTexture) {
   const worker = new Worker('worker.js');
   worker.onmessage = (e) => {
     if (e.data.type === 'progress') {
-      progress(e.data.msg);
+      progress(e.data.msg, e.data.pct);
     } else if (e.data.type === 'result') {
       analysisResult = e.data.data;
       // Convert wall points for 3D
