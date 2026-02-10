@@ -1,0 +1,30 @@
+{
+  "ransac": {
+    "time": 0.2756941318511963,
+    "n_planes": 6,
+    "n_walls": 5,
+    "n_floors": 1,
+    "n_ceilings": 0
+  },
+  "normal_clustering": {
+    "time": 0.4752199649810791,
+    "n_planes": 15,
+    "n_walls": 8,
+    "n_floors": 1,
+    "n_ceilings": 0
+  },
+  "region_growing": {
+    "time": 0.17520880699157715,
+    "n_planes": 190,
+    "n_walls": 160,
+    "n_floors": 9,
+    "n_ceilings": 0
+  },
+  "ransac_fullres": {
+    "time": 4.499939918518066,
+    "n_planes": 20,
+    "n_walls": 2,
+    "n_floors": 10,
+    "n_ceilings": 8
+  }
+}
