@@ -51,27 +51,8 @@ self.onmessage = function(e) {
     }
   }
   
-  // Room polygon
-  const xW = walls.filter(w => w.axis === 'x');
-  const zW = walls.filter(w => w.axis === 'z');
-  const intersections = [];
-  for (const xw of xW) {
-    for (const zw of zW) {
-      const ext = 0.5;
-      if (xw.start - ext <= zw.position && zw.position <= xw.end + ext &&
-          zw.start - ext <= xw.position && xw.position <= zw.end + ext) {
-        intersections.push(rotPt([xw.position, zw.position], angleRad));
-      }
-    }
-  }
-  
-  let room = null;
-  if (intersections.length >= 3) {
-    const hull = convexHull2D(intersections);
-    if (hull.length >= 3) {
-      room = { exterior: [...hull, hull[0]], area: polygonArea(hull), perimeter: polygonPerimeter(hull) };
-    }
-  }
+  // Room polygon — walk walls to build closed outline
+  let room = buildRoomPolygon(walls, angleRad);
   
   // Gaps
   self.postMessage({ type: 'progress', msg: 'Detecting openings...' });
@@ -264,4 +245,117 @@ function polygonPerimeter(pts) {
   let p = 0;
   for (let i = 0; i < pts.length; i++) { const j = (i+1)%pts.length; p += Math.sqrt((pts[j][0]-pts[i][0])**2 + (pts[j][1]-pts[i][1])**2); }
   return p;
+}
+
+function buildRoomPolygon(walls, angleRad) {
+  const xW = walls.filter(w => w.axis === 'x').sort((a,b) => a.position - b.position);
+  const zW = walls.filter(w => w.axis === 'z').sort((a,b) => a.position - b.position);
+  
+  if (xW.length < 2 || zW.length < 2) {
+    // Fallback: convex hull of all wall endpoints
+    const allPts = [];
+    for (const w of walls) { allPts.push(w.startPt, w.endPt); }
+    if (allPts.length < 3) return null;
+    const hull = convexHull2D(allPts);
+    if (hull.length < 3) return null;
+    return { exterior: [...hull, hull[0]], area: polygonArea(hull), perimeter: polygonPerimeter(hull) };
+  }
+  
+  // Find all valid intersections between perpendicular walls
+  const intersections = [];
+  for (const xw of xW) {
+    for (const zw of zW) {
+      // Check overlap: x-wall spans z from xw.start to xw.end
+      // z-wall spans x from zw.start to zw.end
+      const ext = 0.3; // extension tolerance
+      const zInRange = xw.start - ext <= zw.position && zw.position <= xw.end + ext;
+      const xInRange = zw.start - ext <= xw.position && xw.position <= zw.end + ext;
+      if (zInRange && xInRange) {
+        intersections.push({
+          rotPt: [xw.position, zw.position],
+          origPt: rotPt([xw.position, zw.position], angleRad),
+          xWall: xw,
+          zWall: zw,
+        });
+      }
+    }
+  }
+  
+  if (intersections.length < 3) {
+    const allPts = [];
+    for (const w of walls) { allPts.push(w.startPt, w.endPt); }
+    if (allPts.length < 3) return null;
+    const hull = convexHull2D(allPts);
+    if (hull.length < 3) return null;
+    return { exterior: [...hull, hull[0]], area: polygonArea(hull), perimeter: polygonPerimeter(hull) };
+  }
+  
+  // Try to walk the boundary — find the outermost polygon
+  // Use convex hull of intersections as the room boundary
+  const pts = intersections.map(i => i.origPt);
+  const hull = convexHull2D(pts);
+  
+  if (hull.length < 3) return null;
+  
+  // Now try to snap hull vertices to actual wall intersections and create axis-aligned segments
+  // This gives us a clean rectilinear polygon
+  const snappedHull = snapToAxisAligned(hull, intersections, angleRad);
+  
+  const exterior = [...snappedHull, snappedHull[0]];
+  return {
+    exterior,
+    area: polygonArea(snappedHull),
+    perimeter: polygonPerimeter(snappedHull),
+  };
+}
+
+function snapToAxisAligned(hull, intersections, angleRad) {
+  // For each hull edge, try to make it axis-aligned by snapping to nearest wall intersection
+  // This creates a rectilinear (Manhattan) polygon
+  const negRad = -angleRad;
+  
+  // Rotate hull to aligned space
+  const hullRot = hull.map(p => rotPt(p, negRad));
+  
+  // Snap each vertex to nearest intersection in rotated space
+  const intRot = intersections.map(i => i.rotPt);
+  
+  const snapped = hullRot.map(hp => {
+    let bestDist = Infinity, bestPt = hp;
+    for (const ip of intRot) {
+      const d = Math.sqrt((hp[0]-ip[0])**2 + (hp[1]-ip[1])**2);
+      if (d < bestDist) { bestDist = d; bestPt = ip; }
+    }
+    return bestDist < 0.5 ? bestPt : hp;
+  });
+  
+  // Build rectilinear path: between each pair of snapped vertices,
+  // if they don't share an axis, insert an intermediate point
+  const rectilinear = [];
+  for (let i = 0; i < snapped.length; i++) {
+    const curr = snapped[i];
+    const next = snapped[(i + 1) % snapped.length];
+    rectilinear.push(curr);
+    
+    // If not axis-aligned, add corner
+    const dx = Math.abs(next[0] - curr[0]);
+    const dz = Math.abs(next[1] - curr[1]);
+    if (dx > 0.1 && dz > 0.1) {
+      // Need a corner — try both options, pick the one closest to an intersection
+      const opt1 = [next[0], curr[1]];
+      const opt2 = [curr[0], next[1]];
+      
+      let best1 = Infinity, best2 = Infinity;
+      for (const ip of intRot) {
+        const d1 = Math.sqrt((opt1[0]-ip[0])**2 + (opt1[1]-ip[1])**2);
+        const d2 = Math.sqrt((opt2[0]-ip[0])**2 + (opt2[1]-ip[1])**2);
+        if (d1 < best1) best1 = d1;
+        if (d2 < best2) best2 = d2;
+      }
+      rectilinear.push(best1 < best2 ? opt1 : opt2);
+    }
+  }
+  
+  // Rotate back to original coordinates
+  return rectilinear.map(p => rotPt(p, angleRad));
 }
