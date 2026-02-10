@@ -184,13 +184,13 @@ def extract_wall_segments(nms_edges, x_min, z_min, cell_size, min_length=0.3):
         else:
             z_positions.append(((wz1+wz2)/2, length))
     
-    x_walls = cluster_positions(x_positions, 0.15)
-    z_walls = cluster_positions(z_positions, 0.15)
+    x_walls = cluster_positions(x_positions, 0.15, min_total_length=0.8)
+    z_walls = cluster_positions(z_positions, 0.15, min_total_length=3.0)
     
     return x_walls, z_walls
 
 
-def cluster_positions(positions, dist_threshold=0.15):
+def cluster_positions(positions, dist_threshold=0.15, min_total_length=0.8):
     if not positions:
         return []
     sorted_pos = sorted(positions, key=lambda p: p[0])
@@ -206,6 +206,8 @@ def cluster_positions(positions, dist_threshold=0.15):
     result = []
     for cluster in clusters:
         total_len = sum(p[1] for p in cluster)
+        if total_len < min_total_length:
+            continue  # Skip weak wall clusters
         avg_pos = sum(p[0]*p[1] for p in cluster) / total_len
         result.append(avg_pos)
     return sorted(result)
@@ -221,14 +223,21 @@ def build_polygon_from_walls(x_walls, z_walls, rx, rz):
     if len(x_walls) < 2 or len(z_walls) < 2:
         return [[rx.min(), rz.min()], [rx.max(), rz.min()], [rx.max(), rz.max()], [rx.min(), rz.max()]]
     
-    # Outermost X walls only
-    left_x, right_x = x_walls[0], x_walls[-1]
+    def snap_to(target, walls, tolerance=0.4):
+        best, best_d = target, tolerance
+        for w in walls:
+            d = abs(w - target)
+            if d < best_d:
+                best, best_d = w, d
+        return best
     
+    # Outermost 2 X-walls only (reject interior)
+    left_x, right_x = x_walls[0], x_walls[-1]
     # Bottom Z: lowest
     bottom_z = z_walls[0]
     
     # For L-shape detection, check vertex density to find where the room steps
-    # Build a coarse density grid
+    # Build a coarse density grid for L-shape detection
     cell = 0.1
     x_min_g, z_min_g = rx.min(), rz.min()
     nx_g = int((rx.max() - x_min_g) / cell) + 1
@@ -239,6 +248,7 @@ def build_polygon_from_walls(x_walls, z_walls, rx, rz):
     np.add.at(grid, (zi, xi), 1)
     
     # Find where left side ends vs right side (for L-shape)
+    # Sample density grid columns near left/right walls to find Z extent
     left_col = max(0, int((left_x - x_min_g) / cell) + 2)
     right_col = min(nx_g - 1, int((right_x - x_min_g) / cell) - 2)
     
@@ -268,35 +278,26 @@ def build_polygon_from_walls(x_walls, z_walls, rx, rz):
             main_top_target = right_top_z
             ext_top_target = left_top_z
         
-        # Snap to nearest Z-walls
-        def snap_to(target, walls, tolerance=0.3):
-            best, best_d = target, tolerance
-            for w in walls:
-                d = abs(w - target)
-                if d < best_d:
-                    best, best_d = w, d
-            return best
-        
         main_top_z = snap_to(main_top_target, z_walls)
         ext_top_z = snap_to(ext_top_target, z_walls)
         
-        # Find step X: scan columns to find transition
-        # The step X is where columns stop extending above main_top
+        # Find step X using density grid
         main_top_row_idx = int((main_top_z - z_min_g) / cell)
         step_x_target = None
         
         if right_top_z > left_top_z:
-            # Scan from right to left, find where room stops extending above main top
+            # Scan from right to left
             for ci in range(right_col, left_col, -1):
-                if main_top_row_idx + 2 < nz_g and grid[main_top_row_idx + 2, ci] > 0:
+                check_row = min(main_top_row_idx + 2, nz_g - 1)
+                if check_row < nz_g and grid[check_row, ci] > 0:
                     pass  # still in extension
                 else:
                     step_x_target = x_min_g + ci * cell
                     break
         else:
-            # Scan from left to right
             for ci in range(left_col, right_col):
-                if main_top_row_idx + 2 < nz_g and grid[main_top_row_idx + 2, ci] > 0:
+                check_row = min(main_top_row_idx + 2, nz_g - 1)
+                if check_row < nz_g and grid[check_row, ci] > 0:
                     pass
                 else:
                     step_x_target = x_min_g + ci * cell
@@ -449,12 +450,13 @@ def analyze_mesh(mesh_file):
         'walls': walls, 'room': room, 'gaps': gaps,
         'angle': angle, 'coordinate_system': f'{up_name}-up',
         'combined_edges': combined_edges, 'nms': nms, 'polygon_rot': polygon_rot,
+        'img_origin': (img_x_min, img_z_min, cell_size),
     }
 
 
 def visualize_results(results, output_path):
     plt.style.use('dark_background')
-    fig, axes = plt.subplots(1, 3, figsize=(24, 8))
+    fig, axes = plt.subplots(1, 4, figsize=(32, 8))
     
     ax0 = axes[0]
     if results.get('combined_edges') is not None:
@@ -466,7 +468,41 @@ def visualize_results(results, output_path):
         ax1.imshow(results['nms'], cmap='hot', origin='lower')
     ax1.set_title('NMS Edges', color='white', fontsize=14)
     
-    ax = axes[2]
+    # Panel 3: Overlay — edges + floor plan in same coordinate space
+    ax2 = axes[2]
+    ax2.set_aspect('equal')
+    ax2.set_facecolor('black')
+    
+    # Plot NMS edges as scatter in world coords
+    if results.get('nms') is not None and results.get('img_origin') is not None:
+        nms = results['nms']
+        ix_min, iz_min, cs = results['img_origin']
+        edge_rows, edge_cols = np.where(nms > 0.05)
+        if len(edge_rows) > 0:
+            edge_x = ix_min + edge_cols * cs
+            edge_z = iz_min + edge_rows * cs
+            intensities = nms[edge_rows, edge_cols]
+            ax2.scatter(edge_x, edge_z, c=intensities, cmap='hot', s=0.3, alpha=0.6)
+    
+    # Overlay polygon
+    polygon_rot = results.get('polygon_rot', [])
+    if polygon_rot:
+        poly_closed = polygon_rot + [polygon_rot[0]]
+        ax2.plot([p[0] for p in poly_closed], [p[1] for p in poly_closed],
+                 color='cyan', linewidth=2.5, alpha=0.9)
+    
+    ax2.set_title('Edge + Floor Plan Overlay', color='white', fontsize=14)
+    ax2.grid(True, alpha=0.2)
+    ax2.set_xlabel('X (meters)')
+    ax2.set_ylabel('Z (meters)')
+    if polygon_rot:
+        all_x = [p[0] for p in polygon_rot]
+        all_y = [p[1] for p in polygon_rot]
+        m = 0.5
+        ax2.set_xlim(min(all_x)-m, max(all_x)+m)
+        ax2.set_ylim(min(all_y)-m, max(all_y)+m)
+    
+    ax = axes[3]
     ax.set_aspect('equal')
     ax.set_facecolor('black')
     polygon_rot = results.get('polygon_rot', [])
