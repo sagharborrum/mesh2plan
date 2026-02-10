@@ -420,11 +420,44 @@ header .desc {
           <div class="version-title">Raycasting from Centroid</div>
         </div>
         <div class="version-desc">
-          Density mask → 720 rays from centroid → find room boundary → simplify to rectilinear. Room mask is correct but Fixed mask pipeline — exact match! <strong>10.4m² ⭐</strong>
+          Density mask → 720 rays from centroid → find room boundary → simplify to rectilinear. Room mask correct but polygon simplification broken. <strong>3.0m²</strong>
         </div>
         <div class="version-meta">
           <span class="version-tech">Python • Raycasting • Experimental</span>
           <span class="quality-stars">⭐⭐⭐⭐⭐</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section research-versions">
+    <h2>Improved Variants (v20b-v21b)</h2>
+    <div class="version-grid">
+      <div class="version-card" onclick="window.location.href='v20b.html'">
+        <div class="version-header">
+          <div class="version-number">v20b</div>
+          <div class="version-title">Hough Improved</div>
+        </div>
+        <div class="version-desc">
+          Lowered Hough thresholds + v19's structural wall selection. Now detects L-shape step wall. 5 walls, 3 doors, 1 window. <strong>9.5m²</strong>
+        </div>
+        <div class="version-meta">
+          <span class="version-tech">Python • Hough + Structural</span>
+          <span class="quality-stars">⭐⭐⭐⭐⭐⭐⭐</span>
+        </div>
+      </div>
+
+      <div class="version-card" onclick="window.location.href='v21b.html'" style="border-color: rgba(0,255,100,0.4);">
+        <div class="version-header">
+          <div class="version-number">v21b ⭐</div>
+          <div class="version-title">Contour Extraction (Improved Raycast)</div>
+        </div>
+        <div class="version-desc">
+          Threshold=1 + morphological close + fill holes → contour extraction → D-P simplification. Clean 6-vertex L-shape. <strong>10.4m² — EXACT MATCH!</strong>
+        </div>
+        <div class="version-meta">
+          <span class="version-tech">Python • Contour • ⭐ Exact Match</span>
+          <span class="quality-stars">⭐⭐⭐⭐⭐⭐⭐⭐⭐</span>
         </div>
       </div>
     </div>
@@ -449,7 +482,7 @@ header .desc {
   <div class="footer">
     <div class="stats">
       <div class="stat">
-        <div class="num">22</div>
+        <div class="num">24</div>
         <div class="label">Approaches</div>
       </div>
       <div class="stat">
@@ -457,7 +490,7 @@ header .desc {
         <div class="label">Interactive</div>
       </div>
       <div class="stat">
-        <div class="num">13</div>
+        <div class="num">15</div>
         <div class="label">Research</div>
       </div>
     </div>
