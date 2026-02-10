@@ -241,30 +241,30 @@ def select_boundary_walls_strict(walls):
     
     boundary_walls = []
     
-    # For X walls: keep outermost plus any long interior walls
+    # For X walls: keep the LONGEST wall on each side (left half / right half)
     if len(x_walls) >= 2:
         x_walls.sort(key=lambda w: w['position'])
-        boundary_walls.append(x_walls[0])   # Leftmost
-        boundary_walls.append(x_walls[-1])  # Rightmost
-        
-        # Add significant interior walls (long walls that might have openings)
-        for wall in x_walls[1:-1]:
-            if wall['length'] > 2.5 or wall['nPoints'] > 50:  # Significant wall
-                boundary_walls.append(wall)
+        mid_x = (x_walls[0]['position'] + x_walls[-1]['position']) / 2
+        left_walls = [w for w in x_walls if w['position'] < mid_x]
+        right_walls = [w for w in x_walls if w['position'] >= mid_x]
+        if left_walls:
+            boundary_walls.append(max(left_walls, key=lambda w: w['length']))
+        if right_walls:
+            boundary_walls.append(max(right_walls, key=lambda w: w['length']))
                 
     elif len(x_walls) == 1:
         boundary_walls.extend(x_walls)
     
-    # For Z walls: keep outermost plus any long interior walls
+    # For Z walls: keep the LONGEST wall on each side (bottom half / top half)
     if len(z_walls) >= 2:
         z_walls.sort(key=lambda w: w['position'])
-        boundary_walls.append(z_walls[0])   # Bottommost
-        boundary_walls.append(z_walls[-1])  # Topmost
-        
-        # Add significant interior walls (long walls that might have openings)
-        for wall in z_walls[1:-1]:
-            if wall['length'] > 2.5 or wall['nPoints'] > 50:  # Significant wall
-                boundary_walls.append(wall)
+        mid_z = (z_walls[0]['position'] + z_walls[-1]['position']) / 2
+        bottom_walls = [w for w in z_walls if w['position'] < mid_z]
+        top_walls = [w for w in z_walls if w['position'] >= mid_z]
+        if bottom_walls:
+            boundary_walls.append(max(bottom_walls, key=lambda w: w['length']))
+        if top_walls:
+            boundary_walls.append(max(top_walls, key=lambda w: w['length']))
                 
     elif len(z_walls) == 1:
         boundary_walls.extend(z_walls)
