@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mesh2plan v22 — Hybrid (Mask + Hough)</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a1a2e; color: #eee; font-family: system-ui, sans-serif; padding: 20px; }
+h1 { font-size: 24px; color: #00E5FF; margin-bottom: 8px; }
+.desc { color: #aaa; font-size: 14px; line-height: 1.6; margin-bottom: 20px; max-width: 900px; }
+.card { background: rgba(20,20,40,0.8); border-radius: 12px; padding: 16px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px; }
+.card h2 { font-size: 16px; color: #888; margin-bottom: 12px; }
+.card img { width: 100%; border-radius: 8px; }
+.stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 12px; }
+.stat { background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 6px; }
+.stat-label { font-size: 11px; color: #666; text-transform: uppercase; }
+.stat-value { font-size: 18px; font-weight: bold; color: #00E5FF; }
+.badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-right: 6px; }
+.badge-approach { background: rgba(255,165,0,0.2); color: #FFA500; }
+.badge-area { background: rgba(0,229,255,0.2); color: #00E5FF; }
+.badge-best { background: rgba(0,255,100,0.2); color: #00FF64; }
+pre { background: rgba(0,0,0,0.4); padding: 12px; border-radius: 8px; font-size: 12px; color: #ccc; max-height: 400px; overflow-y: auto; margin-top: 12px; }
+a { color: #00E5FF; }
+nav { margin-bottom: 20px; }
+nav a { margin-right: 12px; font-size: 13px; }
+</style>
+</head>
+<body>
+<nav><a href="index.html">← All Versions</a> <a href="v21.html">v21</a></nav>
+<h1>v22 — Hybrid (v21b Mask + v20b Hough Walls)</h1>
+<span class="badge badge-approach">Density Mask + Hough Lines</span>
+<span class="badge badge-area">10.7m²</span>
+<span class="badge badge-best">★ SQUARE WALLS</span>
+<p class="desc">
+Combines the best of v21b (density mask for room shape) and v20b (Hough lines for precise wall positions).
+The mask determines the room layout (L-shape, step position), while Hough lines provide perfectly axis-aligned wall coordinates.
+Result: accurate room shape with walls that are truly square to each other.
+</p>
+<div class="card">
+  <h2>Floor Plan (3-panel: Mask → Edges → Result)</h2>
+  <img src="../results/v22_hybrid/v22_export_refined_floorplan.png" alt="v22 hybrid">
+  <div class="stats">
+    <div class="stat"><div class="stat-label">Area</div><div class="stat-value">10.7m²</div></div>
+    <div class="stat"><div class="stat-label">Target</div><div class="stat-value">10.4m²</div></div>
+    <div class="stat"><div class="stat-label">Error</div><div class="stat-value">0.3m²</div></div>
+    <div class="stat"><div class="stat-label">Walls</div><div class="stat-value">6</div></div>
+    <div class="stat"><div class="stat-label">Shape</div><div class="stat-value">L (6 vtx)</div></div>
+    <div class="stat"><div class="stat-label">Square</div><div class="stat-value">✅ Yes</div></div>
+  </div>
+</div>
+<div class="card" style="max-width:600px;">
+  <h2>Results JSON</h2>
+  <pre id="json">Loading...</pre>
+</div>
+<script>
+fetch('../results/v22_hybrid/v22_export_refined_results.json')
+  .then(r=>r.json()).then(d=>document.getElementById('json').textContent=JSON.stringify(d,null,2))
+  .catch(()=>document.getElementById('json').textContent='Failed to load');
+</script>
+</body>
+</html>
