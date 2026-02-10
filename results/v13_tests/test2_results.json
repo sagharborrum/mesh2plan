@@ -1,0 +1,72 @@
+{
+  "method": "alpha_shape_boundary_v13",
+  "mesh_file": "data/gdrive_sample/2026_02_09_19_03_38/export_refined.obj",
+  "parameters": {
+    "alpha": 0.5,
+    "floor_height_range": null,
+    "floor_points_3d": 3829
+  },
+  "room_boundary": [
+    [
+      2.90773,
+      -2.3325
+    ],
+    [
+      2.5275,
+      1.07439
+    ],
+    [
+      0.5325,
+      0.71647
+    ],
+    [
+      -0.94602,
+      -0.09957
+    ],
+    [
+      -2.67365,
+      -2.7375
+    ],
+    [
+      2.9025,
+      -2.33535
+    ]
+  ],
+  "openings": [
+    {
+      "type": "window",
+      "position": [
+        2.715,
+        -0.63048
+      ],
+      "size_meters": 3.430299093023814,
+      "angle_radians": 1.9585948311421375
+    },
+    {
+      "type": "window",
+      "position": [
+        1.7201149999999998,
+        -0.8080149999999999
+      ],
+      "size_meters": 3.8649625630528432,
+      "angle_radians": 1.5044225960386812
+    },
+    {
+      "type": "window",
+      "position": [
+        0.97824,
+        -1.21746
+      ],
+      "size_meters": 4.450822216040537,
+      "angle_radians": 0.9189760013322045
+    }
+  ],
+  "room_area_sqm": 13.708235830799998,
+  "room_area_sqft": 147.55545048273117,
+  "alpha_shape_stats": {
+    "boundary_edges": 85,
+    "triangles": 7561,
+    "boundary_points": 85,
+    "refined_points": 6
+  }
+}

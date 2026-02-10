@@ -1,0 +1,28 @@
+{
+  "method": "alpha_shape_boundary_v13",
+  "mesh_file": "data/2026_01_13_14_47_59/export_refined.obj",
+  "parameters": {
+    "alpha": 0.5,
+    "floor_height_range": null,
+    "floor_points_3d": 1000
+  },
+  "room_boundary": [
+    [
+      0.9625,
+      5.6265
+    ],
+    [
+      0.9185,
+      5.47914
+    ]
+  ],
+  "openings": [],
+  "room_area_sqm": 0.0,
+  "room_area_sqft": 0.0,
+  "alpha_shape_stats": {
+    "boundary_edges": 42,
+    "triangles": 1940,
+    "boundary_points": 42,
+    "refined_points": 2
+  }
+}
