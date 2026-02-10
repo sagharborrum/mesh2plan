@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mesh2plan v27 — Multiroom Floor Plan Detection</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a1a2e; color: #eee; font-family: system-ui, sans-serif; padding: 20px; }
+h1 { font-size: 24px; color: #00E5FF; margin-bottom: 8px; }
+.desc { color: #aaa; font-size: 14px; line-height: 1.6; margin-bottom: 20px; max-width: 900px; }
+.results { display: flex; gap: 20px; flex-wrap: wrap; }
+.card { background: rgba(20,20,40,0.8); border-radius: 12px; padding: 16px; border: 1px solid rgba(255,255,255,0.1); flex: 1; min-width: 400px; }
+.card h2 { font-size: 16px; color: #888; margin-bottom: 12px; }
+.card img { width: 100%; border-radius: 8px; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.stat { background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 6px; }
+.stat-label { font-size: 11px; color: #666; text-transform: uppercase; }
+.stat-value { font-size: 18px; font-weight: bold; color: #00E5FF; }
+.badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-right: 6px; }
+.badge-area { background: rgba(0,229,255,0.2); color: #00E5FF; }
+.badge-approach { background: rgba(255,165,0,0.2); color: #FFA500; }
+.badge-new { background: rgba(255,0,128,0.2); color: #FF0080; }
+pre { background: rgba(0,0,0,0.4); padding: 12px; border-radius: 8px; font-size: 12px; overflow-x: auto; margin-top: 12px; color: #ccc; max-height: 400px; overflow-y: auto; }
+a { color: #00E5FF; }
+nav { margin-bottom: 20px; }
+nav a { margin-right: 12px; font-size: 13px; }
+h3 { color: #FFA500; margin: 20px 0 10px; }
+</style>
+</head>
+<body>
+<nav><a href="index.html">← All Versions</a> <a href="v26.html">← v26</a></nav>
+<h1>v27 — Multiroom Floor Plan Detection</h1>
+<span class="badge badge-approach">Edge Detection + Hough + Room Mask + Interior Wall Splitting</span>
+<span class="badge badge-new">★ MULTIROOM</span>
+<p class="desc">First version that handles multiple rooms. Builds a room mask from density image, classifies Hough-detected walls as boundary vs interior, draws interior walls as separators to split the mask into rooms via connected components. Each room gets its own polygon with wall snapping. Detects door openings as gaps in interior walls between adjacent rooms. 4-panel visualization: edge response, NMS+Hough walls, room segmentation map, final floor plan.</p>
+
+<h3>Multiroom Test (9m × 9m apartment)</h3>
+<div class="results">
+  <div class="card">
+    <h2>Floor Plan — Multiroom</h2>
+    <img src="../results/v27_multiroom/v27_export_refined_floorplan.png" alt="multiroom floor plan">
+    <div class="stats">
+      <div class="stat"><div class="stat-label">Rooms</div><div class="stat-value" id="mr-rooms">—</div></div>
+      <div class="stat"><div class="stat-label">Total Area</div><div class="stat-value" id="mr-area">—</div></div>
+      <div class="stat"><div class="stat-label">Interior Walls</div><div class="stat-value" id="mr-walls">—</div></div>
+      <div class="stat"><div class="stat-label">Openings</div><div class="stat-value" id="mr-openings">—</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Results JSON — Multiroom</h2>
+    <pre id="json-mr">Loading...</pre>
+  </div>
+</div>
+
+<h3>Single Room Test (L-shaped, target 10.4m²)</h3>
+<div class="results" style="margin-top:10px;">
+  <div class="card">
+    <h2>Floor Plan — Single Room</h2>
+    <img src="../results/v27_singleroom/v27_export_refined_floorplan.png" alt="single room floor plan">
+    <div class="stats">
+      <div class="stat"><div class="stat-label">Rooms</div><div class="stat-value" id="sr-rooms">—</div></div>
+      <div class="stat"><div class="stat-label">Total Area</div><div class="stat-value" id="sr-area">—</div></div>
+      <div class="stat"><div class="stat-label">Target</div><div class="stat-value">10.4m²</div></div>
+      <div class="stat"><div class="stat-label">Openings</div><div class="stat-value" id="sr-openings">—</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Results JSON — Single Room</h2>
+    <pre id="json-sr">Loading...</pre>
+  </div>
+</div>
+
+<script>
+function loadResults(url, jsonId, statsMap) {
+  fetch(url).then(r=>r.json()).then(j=>{
+    document.getElementById(jsonId).textContent=JSON.stringify(j,null,2);
+    for(const[id,path]of Object.entries(statsMap)){
+      const el=document.getElementById(id);
+      if(el){let v=j;for(const k of path.split('.')){v=v[k]}el.textContent=v;}
+    }
+  }).catch(()=>document.getElementById(jsonId).textContent='Failed to load');
+}
+loadResults('../results/v27_multiroom/v27_export_refined_results.json','json-mr',{
+  'mr-rooms':'summary.num_rooms','mr-area':'summary.total_area_m2',
+  'mr-walls':'summary.openings','mr-openings':'summary.openings'
+});
+loadResults('../results/v27_singleroom/v27_export_refined_results.json','json-sr',{
+  'sr-rooms':'summary.num_rooms','sr-area':'summary.total_area_m2',
+  'sr-openings':'summary.openings'
+});
+// Fix walls display
+fetch('../results/v27_multiroom/v27_export_refined_results.json').then(r=>r.json()).then(j=>{
+  document.getElementById('mr-walls').textContent=j.summary.interior_walls_x+j.summary.interior_walls_z;
+  document.getElementById('mr-openings').textContent=j.summary.openings;
+});
+</script>
+</body>
+</html>
