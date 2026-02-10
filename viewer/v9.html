@@ -42,11 +42,11 @@ body { background: #1a1a2e; color: #eee; font-family: system-ui, sans-serif; ove
 </style>
 </head>
 <body>
-<div id="dropzone"><span>Drop OBJ file to analyze</span></div>
+<div id="dropzone"><span>Drop OBJ + MTL + texture files</span></div>
 <div id="loading">
   <div class="title">mesh2plan</div>
   <div class="sub">3D mesh → floor plan in your browser</div>
-  <div class="drop-hint" id="dropHint">Drop an OBJ file here — or click to browse</div>
+  <div class="drop-hint" id="dropHint">Drop OBJ (+ MTL + texture) here — or click to browse</div>
   <input type="file" id="fileInput" accept=".obj" style="display:none">
   <div id="progress"></div>
 </div>
@@ -128,15 +128,55 @@ const fileInput = document.getElementById('fileInput');
 const dropzone = document.getElementById('dropzone');
 
 dropHint.addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', e => { if (e.target.files[0]) loadOBJ(e.target.files[0]); });
+// fileInput change handled in loadOBJWithTexture above
 
 document.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('active'); });
 document.addEventListener('dragleave', e => { if (e.relatedTarget === null) dropzone.classList.remove('active'); });
 document.addEventListener('drop', e => {
   e.preventDefault(); dropzone.classList.remove('active');
-  const file = e.dataTransfer.files[0];
-  if (file && (file.name.endsWith('.obj') || file.name.endsWith('.OBJ'))) loadOBJ(file);
+  const files = Array.from(e.dataTransfer.files);
+  const objFile = files.find(f => f.name.toLowerCase().endsWith('.obj'));
+  const mtlFile = files.find(f => f.name.toLowerCase().endsWith('.mtl'));
+  const texFiles = files.filter(f => /\.(jpg|jpeg|png|webp)$/i.test(f.name));
+  if (objFile) loadOBJWithTexture(objFile, mtlFile, texFiles);
 });
+
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) loadOBJWithTexture(e.target.files[0], null, []);
+});
+
+async function loadOBJWithTexture(objFile, mtlFile, texFiles) {
+  if (mtlFile && texFiles.length > 0) {
+    // Build texture map from dropped files
+    const texMap = {};
+    for (const tf of texFiles) {
+      texMap[tf.name] = URL.createObjectURL(tf);
+    }
+    
+    progress(`Loading ${objFile.name} with textures...`);
+    const mtlText = await mtlFile.text();
+    const objText = await objFile.text();
+    
+    // Parse MTL and replace texture paths with blob URLs
+    const mtlLoader = new MTLLoader();
+    // Custom resource path using blob URLs
+    const modifiedMtl = mtlText.replace(/map_Kd\s+(\S+)/g, (match, texName) => {
+      if (texMap[texName]) return `map_Kd ${texMap[texName]}`;
+      return match;
+    });
+    
+    const materials = mtlLoader.parse(modifiedMtl, '');
+    materials.preload();
+    
+    const loader = new OBJLoader();
+    loader.setMaterials(materials);
+    const obj = loader.parse(objText);
+    
+    setupMesh(obj, true);
+  } else {
+    loadOBJ(objFile);
+  }
+}
 
 function progress(msg) {
   document.getElementById('progress').textContent = msg;
@@ -148,7 +188,10 @@ async function loadOBJ(file) {
   const text = await file.text();
   const loader = new OBJLoader();
   const obj = loader.parse(text);
-  
+  setupMesh(obj, false);
+}
+
+function setupMesh(obj, hasTexture) {
   // Clear previous
   meshGroup.clear(); wallLines3D.clear(); slicePlane.clear();
   
@@ -161,9 +204,15 @@ async function loadOBJ(file) {
   meshBounds = new THREE.Box3().setFromObject(obj);
   
   const sz = meshBounds.getSize(new THREE.Vector3());
-  obj.traverse(c => { if (c.isMesh) {
-    c.material = new THREE.MeshPhongMaterial({ color: 0xccddee, transparent: true, opacity: 0.6, side: THREE.DoubleSide, flatShading: true });
-  }});
+  if (!hasTexture) {
+    obj.traverse(c => { if (c.isMesh) {
+      c.material = new THREE.MeshPhongMaterial({ color: 0xccddee, transparent: true, opacity: 0.6, side: THREE.DoubleSide, flatShading: true });
+    }});
+  } else {
+    obj.traverse(c => { if (c.isMesh) {
+      c.material.transparent = true; c.material.opacity = 0.65; c.material.side = THREE.DoubleSide;
+    }});
+  }
   meshGroup.add(obj);
   
   ctrl.target.set(0, sz.y/2, 0);
@@ -180,15 +229,36 @@ async function loadOBJ(file) {
   obj.updateMatrixWorld(true);
   currentMesh = collectTriangles(obj);
   
-  // Run analysis
-  progress('Analyzing floor plan...');
-  await new Promise(r => setTimeout(r, 50)); // let UI update
-  analysisResult = analyzeMesh(currentMesh, sz);
-  buildUI();
-  buildWalls3D();
-  drawFP();
-  updateStats();
-  progress('');
+  // Run analysis in web worker for smooth UI
+  progress('Analyzing floor plan (worker)...');
+  
+  // Convert triangles to transferable format [x,y,z, x,y,z, x,y,z] per tri
+  const triData = currentMesh.map(t => [
+    [t[0].x, t[0].y, t[0].z],
+    [t[1].x, t[1].y, t[1].z],
+    [t[2].x, t[2].y, t[2].z]
+  ]);
+  
+  const worker = new Worker('worker.js');
+  worker.onmessage = (e) => {
+    if (e.data.type === 'progress') {
+      progress(e.data.msg);
+    } else if (e.data.type === 'result') {
+      analysisResult = e.data.data;
+      // Convert wall points for 3D
+      buildUI();
+      buildWalls3D();
+      drawFP();
+      updateStats();
+      progress('');
+      worker.terminate();
+    }
+  };
+  worker.postMessage({
+    triangles: triData,
+    meshBounds: { min: { x: meshBounds.min.x, y: meshBounds.min.y, z: meshBounds.min.z },
+                  max: { x: meshBounds.max.x, y: meshBounds.max.y, z: meshBounds.max.z } }
+  });
 }
 
 function collectTriangles(obj) {
