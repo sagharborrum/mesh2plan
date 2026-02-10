@@ -778,12 +778,24 @@ function drawFP() {
   const cx=w/2, cy=h/2, midX=(mnX+mxX)/2, midY=(mnY+mxY)/2;
   const tx = p => [cx+(p[0]-midX)*scale, cy+(p[1]-midY)*scale];
 
-  // Point cloud
-  ctx.fillStyle = ptColor;
-  const step = Math.max(1, Math.floor(r.allXZ.length / 5000));
-  for (let i = 0; i < r.allXZ.length; i += step) {
-    const [px, py] = tx(r.allXZ[i]);
-    ctx.fillRect(px-0.5*dpr, py-0.5*dpr, dpr, dpr);
+  // Point cloud — color by slice height
+  if (r.slices) {
+    const nSlices = r.slices.length;
+    for (let si = 0; si < nSlices; si++) {
+      const slice = r.slices[si];
+      const t = si / (nSlices - 1 || 1);
+      // Cool gradient: blue (floor) → cyan (mid) → white (ceiling)
+      const rr = Math.floor(t * 80 + 20);
+      const gg = Math.floor(t * 120 + 60);
+      const bb = Math.floor(t * 80 + 150);
+      ctx.fillStyle = darkTheme ? `rgba(${rr},${gg},${bb},0.06)` : `rgba(${150-rr},${150-gg},${220-bb},0.04)`;
+      const pts = slice.points;
+      const step = Math.max(1, Math.floor(pts.length / 300));
+      for (let i = 0; i < pts.length; i += step) {
+        const [px, py] = tx(pts[i]);
+        ctx.fillRect(px-0.5*dpr, py-0.5*dpr, dpr, dpr);
+      }
+    }
   }
 
   // Room fill
