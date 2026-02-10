@@ -829,10 +829,19 @@ window.loadDemo = async () => {
   progress('Loading demo scan...');
   document.getElementById('loading').classList.remove('hidden');
   try {
-    const resp = await fetch('../data/room_scan/2026_02_09_19_03_38/export_refined.obj');
+    // Try local data first, then GitHub release
+    let resp = await fetch('../data/room_scan/2026_02_09_19_03_38/export_refined.obj').catch(() => null);
+    if (!resp || !resp.ok) {
+      // Try smaller export.obj from data dir
+      resp = await fetch('../data/room_scan/2026_02_09_19_03_38/export.obj').catch(() => null);
+    }
+    if (!resp || !resp.ok) {
+      progress('Demo scan not available locally — drop your own OBJ file');
+      return;
+    }
     const text = await resp.text();
     const blob = new Blob([text], { type: 'text/plain' });
-    const file = new File([blob], 'export_refined.obj');
+    const file = new File([blob], 'export.obj');
     await loadOBJ(file);
   } catch(e) {
     progress('Demo not available — drop your own OBJ file');
