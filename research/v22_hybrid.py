@@ -598,42 +598,63 @@ def visualize_results(results, output_path):
         ax1.imshow(results['edges'], cmap='gray', origin='lower')
     ax1.set_title('Canny Edges + Hough Walls (v20b)', color='white', fontsize=14)
     
-    # Right: Final floor plan
+    # Right: Final floor plan (plotted in rotated/axis-aligned space)
     ax = axes[2]
     ax.set_aspect('equal')
     ax.set_facecolor('black')
     
-    if results['room']:
-        poly = results['room']['exterior']
-        ax.fill([p[0] for p in poly], [p[1] for p in poly], color='gray', alpha=0.3)
-        ax.plot([p[0] for p in poly], [p[1] for p in poly], color='gray', linewidth=1, alpha=0.7)
+    polygon_rot = results.get('polygon_rot', [])
+    angle_rad = results.get('angle', 0) * math.pi / 180
     
-    for w in results['walls']:
-        s, e = w['startPt'], w['endPt']
-        ax.plot([s[0], e[0]], [s[1], e[1]], color='white', linewidth=4, solid_capstyle='round')
-        mx, my = (s[0]+e[0])/2, (s[1]+e[1])/2
-        
-        dx = e[0] - s[0]
-        dy = e[1] - s[1]
-        ang = math.degrees(math.atan2(dy, dx))
-        if ang > 90 or ang < -90:
-            ang += 180
-        
-        ax.text(mx, my, f"{w['length']:.2f}m", ha='center', va='bottom',
-                color='yellow', fontsize=10, fontweight='bold',
-                rotation=ang, rotation_mode='anchor')
+    if polygon_rot:
+        poly_closed = polygon_rot + [polygon_rot[0]]
+        ax.fill([p[0] for p in poly_closed], [p[1] for p in poly_closed], color='gray', alpha=0.3)
+        ax.plot([p[0] for p in poly_closed], [p[1] for p in poly_closed], color='gray', linewidth=1, alpha=0.7)
     
+    # Draw walls in rotated space (axis-aligned)
+    for i in range(len(polygon_rot)):
+        j = (i + 1) % len(polygon_rot)
+        p1, p2 = polygon_rot[i], polygon_rot[j]
+        length = math.sqrt((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)
+        if length < 0.15:
+            continue
+        
+        ax.plot([p1[0], p2[0]], [p1[1], p2[1]], color='white', linewidth=4, solid_capstyle='round')
+        mx, my = (p1[0]+p2[0])/2, (p1[1]+p2[1])/2
+        
+        # Label offset: push label outward from polygon center
+        cx = sum(p[0] for p in polygon_rot) / len(polygon_rot)
+        cy = sum(p[1] for p in polygon_rot) / len(polygon_rot)
+        dx, dy = abs(p2[0]-p1[0]), abs(p2[1]-p1[1])
+        
+        if dx > dy:  # horizontal wall
+            offset_y = -0.15 if my < cy else 0.15
+            ax.text(mx, my + offset_y, f"{length:.2f}m", ha='center', va='center',
+                    color='yellow', fontsize=10, fontweight='bold')
+        else:  # vertical wall
+            offset_x = -0.15 if mx < cx else 0.15
+            ax.text(mx + offset_x, my, f"{length:.2f}m", ha='center', va='center',
+                    color='yellow', fontsize=10, fontweight='bold', rotation=90)
+    
+    # Draw openings in rotated space
     for g in results['gaps']:
         c = 'cyan' if g['type'] == 'door' else 'lime'
-        ax.plot([g['start'][0], g['end'][0]], [g['start'][1], g['end'][1]],
-                color=c, linewidth=2, linestyle='--')
+        # Rotate opening points back to rotated space
+        def unrot(p):
+            return [p[0]*math.cos(-angle_rad) - p[1]*math.sin(-angle_rad),
+                    p[0]*math.sin(-angle_rad) + p[1]*math.cos(-angle_rad)]
+        s_r = unrot(g['start'])
+        e_r = unrot(g['end'])
+        m_r = unrot(g['mid'])
+        
+        ax.plot([s_r[0], e_r[0]], [s_r[1], e_r[1]], color=c, linewidth=2, linestyle='--')
         
         radius = g['width'] / 4
-        arc = patches.Arc((g['mid'][0], g['mid'][1]), radius*2, radius*2,
+        arc = patches.Arc((m_r[0], m_r[1]), radius*2, radius*2,
                           theta1=0, theta2=180, color=c, linewidth=2)
         ax.add_patch(arc)
         
-        ax.text(g['mid'][0], g['mid'][1], f"{g['width']:.2f}m", ha='center', va='center',
+        ax.text(m_r[0], m_r[1], f"{g['width']:.2f}m", ha='center', va='center',
                 color=c, fontsize=9, fontweight='bold',
                 bbox=dict(boxstyle='round,pad=0.2', facecolor='black', alpha=0.7))
     
@@ -643,17 +664,19 @@ def visualize_results(results, output_path):
         
         doors = len([g for g in results['gaps'] if g['type'] == 'door'])
         windows = len([g for g in results['gaps'] if g['type'] == 'window'])
-        stats = f"Area: {area:.1f}m²\nWalls: {len(results['walls'])}\nDoors: {doors}\nWindows: {windows}"
+        n_walls = len(results['walls'])
+        shape = f"L ({len(polygon_rot)} vtx)" if len(polygon_rot) == 6 else f"Rect ({len(polygon_rot)} vtx)"
+        stats = f"Area: {area:.1f}m²\nWalls: {n_walls}\nDoors: {doors}\nWindows: {windows}\nShape: {shape}"
         ax.text(0.98, 0.98, stats, transform=ax.transAxes, fontsize=11, color='white',
                 va='top', ha='right', bbox=dict(boxstyle='round,pad=0.5', facecolor='black', alpha=0.7))
     
     ax.grid(True, alpha=0.3)
     ax.set_xlabel('X (meters)')
-    ax.set_ylabel('Y (meters)')
+    ax.set_ylabel('Z (meters)')
     
-    all_x = [w['startPt'][0] for w in results['walls']] + [w['endPt'][0] for w in results['walls']]
-    all_y = [w['startPt'][1] for w in results['walls']] + [w['endPt'][1] for w in results['walls']]
-    if all_x:
+    if polygon_rot:
+        all_x = [p[0] for p in polygon_rot]
+        all_y = [p[1] for p in polygon_rot]
         m = 0.5
         ax.set_xlim(min(all_x)-m, max(all_x)+m)
         ax.set_ylim(min(all_y)-m, max(all_y)+m)
