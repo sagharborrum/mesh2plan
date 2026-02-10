@@ -72,6 +72,7 @@ body { background: #1a1a2e; color: #eee; font-family: system-ui, sans-serif; ove
       <button onclick="exportSVG()">⬇ SVG</button>
       <button onclick="exportDXF()">⬇ DXF</button>
       <button onclick="toggleUnits()">📏 m/ft</button>
+      <button onclick="toggleTheme()">🌓 Theme</button>
       <button onclick="loadDemo()">📦 Demo</button>
     </div>
     <div id="stats"></div>
@@ -117,6 +118,7 @@ let meshCenter = new THREE.Vector3();
 let floorYoff = 0;
 let analysisResult = null;
 let useMetric = true;
+let darkTheme = true;
 
 // Expose for debugging
 window._camera = camera; window._meshGroup = meshGroup; window._scene = scene;
@@ -721,7 +723,19 @@ function drawFP() {
   fpC.width = panel.clientWidth*dpr; fpC.height = panel.clientHeight*dpr;
   fpC.style.width = panel.clientWidth+'px'; fpC.style.height = panel.clientHeight+'px';
   const w = fpC.width, h = fpC.height;
-  ctx.clearRect(0,0,w,h); ctx.fillStyle = '#0a0a1e'; ctx.fillRect(0,0,w,h);
+  const bg = darkTheme ? '#0a0a1e' : '#ffffff';
+  const wallFill = darkTheme ? 'rgba(0, 229, 255, 0.25)' : 'rgba(40, 40, 40, 0.85)';
+  const wallStroke = darkTheme ? '#00E5FF' : '#222222';
+  const dimColor = darkTheme ? '#FFD54F' : '#666666';
+  const areaColor = darkTheme ? 'rgba(0, 229, 255, 0.9)' : '#333333';
+  const areaBg = darkTheme ? 'rgba(10,10,30,0.6)' : 'rgba(255,255,255,0.8)';
+  const ptColor = darkTheme ? 'rgba(0, 229, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)';
+  const roomFill = darkTheme ? 'rgba(0, 229, 255, 0.03)' : 'rgba(200, 220, 255, 0.3)';
+  const shadowColor = darkTheme ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.1)';
+  const gridColor = darkTheme ? 'rgba(255,255,255,0.015)' : 'rgba(0,0,0,0.04)';
+  const scaleColor = darkTheme ? '#555' : '#999';
+  
+  ctx.clearRect(0,0,w,h); ctx.fillStyle = bg; ctx.fillRect(0,0,w,h);
 
   const allPts = [];
   r.walls.forEach(w => { allPts.push(w.startPt, w.endPt); });
@@ -736,7 +750,7 @@ function drawFP() {
   const tx = p => [cx+(p[0]-midX)*scale, cy+(p[1]-midY)*scale];
 
   // Point cloud
-  ctx.fillStyle = 'rgba(0, 229, 255, 0.03)';
+  ctx.fillStyle = ptColor;
   const step = Math.max(1, Math.floor(r.allXZ.length / 5000));
   for (let i = 0; i < r.allXZ.length; i += step) {
     const [px, py] = tx(r.allXZ[i]);
@@ -746,9 +760,18 @@ function drawFP() {
   // Room fill
   if (r.room?.exterior) {
     const ext = r.room.exterior.map(tx);
-    ctx.fillStyle = 'rgba(0, 229, 255, 0.03)';
+    ctx.fillStyle = roomFill;
     ctx.beginPath(); ctx.moveTo(ext[0][0], ext[0][1]);
     ext.slice(1).forEach(p => ctx.lineTo(p[0], p[1])); ctx.closePath(); ctx.fill();
+  }
+
+  // Grid
+  ctx.strokeStyle = gridColor; ctx.lineWidth = 0.5*dpr;
+  for (let x = Math.floor(mnX); x <= Math.ceil(mxX); x += 0.5) {
+    const [px] = tx([x,0]); ctx.beginPath(); ctx.moveTo(px, pad/2); ctx.lineTo(px, h-pad/2); ctx.stroke();
+  }
+  for (let y = Math.floor(mnY); y <= Math.ceil(mxY); y += 0.5) {
+    const [,py] = tx([0,y]); ctx.beginPath(); ctx.moveTo(pad/2, py); ctx.lineTo(w-pad/2, py); ctx.stroke();
   }
 
   // Walls
@@ -759,15 +782,18 @@ function drawFP() {
     if (len < 1) continue;
     const nx = -dy/len * WT/2, ny = dx/len * WT/2;
     
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    // Shadow
+    ctx.fillStyle = shadowColor;
     ctx.beginPath(); ctx.moveTo(x1+nx+2*dpr, y1+ny+2*dpr); ctx.lineTo(x2+nx+2*dpr, y2+ny+2*dpr);
     ctx.lineTo(x2-nx+2*dpr, y2-ny+2*dpr); ctx.lineTo(x1-nx+2*dpr, y1-ny+2*dpr); ctx.closePath(); ctx.fill();
     
-    ctx.fillStyle = 'rgba(0, 229, 255, 0.25)';
+    // Wall body
+    ctx.fillStyle = wallFill;
     ctx.beginPath(); ctx.moveTo(x1+nx, y1+ny); ctx.lineTo(x2+nx, y2+ny);
     ctx.lineTo(x2-nx, y2-ny); ctx.lineTo(x1-nx, y1-ny); ctx.closePath(); ctx.fill();
     
-    ctx.strokeStyle = CC.wallLine; ctx.lineWidth = 1.5*dpr; ctx.lineCap = 'round';
+    // Wall edges
+    ctx.strokeStyle = wallStroke; ctx.lineWidth = 1.5*dpr; ctx.lineCap = 'round';
     [[x1+nx,y1+ny,x2+nx,y2+ny],[x1-nx,y1-ny,x2-nx,y2-ny],[x1+nx,y1+ny,x1-nx,y1-ny],[x2+nx,y2+ny,x2-nx,y2-ny]].forEach(([a,b,c,d]) => {
       ctx.beginPath(); ctx.moveTo(a,b); ctx.lineTo(c,d); ctx.stroke();
     });
@@ -781,20 +807,24 @@ function drawFP() {
     
     if (gap.type === 'door') {
       const nx = -dy/len * WT/2, ny = dx/len * WT/2;
-      ctx.fillStyle = '#0a0a1e';
+      ctx.fillStyle = bg; // clear wall behind door
       ctx.beginPath(); ctx.moveTo(x1+nx*1.3, y1+ny*1.3); ctx.lineTo(x2+nx*1.3, y2+ny*1.3);
       ctx.lineTo(x2-nx*1.3, y2-ny*1.3); ctx.lineTo(x1-nx*1.3, y1-ny*1.3); ctx.closePath(); ctx.fill();
       
       const angle = Math.atan2(dy, dx);
-      ctx.strokeStyle = CC.door; ctx.lineWidth = 1.5*dpr; ctx.setLineDash([]);
+      ctx.strokeStyle = darkTheme ? CC.door : '#2196F3'; ctx.lineWidth = 1.5*dpr; ctx.setLineDash([]);
       ctx.beginPath(); ctx.arc(x1, y1, len, angle, angle-Math.PI/2, true); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(x1, y1);
       ctx.lineTo(x1+Math.cos(angle-Math.PI/2)*len, y1+Math.sin(angle-Math.PI/2)*len); ctx.stroke();
     } else if (gap.type === 'window') {
       const wnx = -dy/len * WT*0.7, wny = dx/len * WT*0.7;
-      ctx.strokeStyle = CC.window; ctx.lineWidth = 2.5*dpr;
+      ctx.strokeStyle = darkTheme ? CC.window : '#333'; ctx.lineWidth = 2.5*dpr;
       ctx.beginPath(); ctx.moveTo(x1+wnx/2, y1+wny/2); ctx.lineTo(x2+wnx/2, y2+wny/2); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(x1-wnx/2, y1-wny/2); ctx.lineTo(x2-wnx/2, y2-wny/2); ctx.stroke();
+      // Center cross
+      ctx.lineWidth = 1*dpr;
+      const wmx = (x1+x2)/2, wmy = (y1+y2)/2;
+      ctx.beginPath(); ctx.moveTo(wmx+wnx/2, wmy+wny/2); ctx.lineTo(wmx-wnx/2, wmy-wny/2); ctx.stroke();
     }
   }
   ctx.setLineDash([]);
@@ -808,13 +838,15 @@ function drawFP() {
     if (len < 30*dpr) continue;
     const nx = -dy/len, ny = dx/len, off = 24*dpr;
     
-    ctx.strokeStyle = 'rgba(255,213,79,0.35)'; ctx.lineWidth = 0.8*dpr; ctx.setLineDash([3*dpr, 3*dpr]);
+    const dimStroke = darkTheme ? 'rgba(255,213,79,0.35)' : 'rgba(0,0,0,0.15)';
+    const dimTick = darkTheme ? 'rgba(255,213,79,0.5)' : 'rgba(0,0,0,0.25)';
+    ctx.strokeStyle = dimStroke; ctx.lineWidth = 0.8*dpr; ctx.setLineDash([3*dpr, 3*dpr]);
     ctx.beginPath(); ctx.moveTo(x1+nx*off, y1+ny*off); ctx.lineTo(x2+nx*off, y2+ny*off); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.strokeStyle = 'rgba(255,213,79,0.5)'; ctx.lineWidth = 0.8*dpr;
+    ctx.strokeStyle = dimTick; ctx.lineWidth = 0.8*dpr;
     [x1,x2].forEach((x,i) => { const y = i===0?y1:y2; ctx.beginPath(); ctx.moveTo(x+nx*(off-4*dpr),y+ny*(off-4*dpr)); ctx.lineTo(x+nx*(off+4*dpr),y+ny*(off+4*dpr)); ctx.stroke(); });
     
-    ctx.fillStyle = CC.dim; ctx.save();
+    ctx.fillStyle = dimColor; ctx.save();
     const mx = (x1+x2)/2+nx*off, my = (y1+y2)/2+ny*off;
     ctx.translate(mx, my);
     let angle = Math.atan2(dy, dx);
@@ -829,11 +861,11 @@ function drawFP() {
     const ext = r.room.exterior.map(tx);
     const rcx = ext.reduce((s,p) => s+p[0], 0)/ext.length;
     const rcy = ext.reduce((s,p) => s+p[1], 0)/ext.length;
-    ctx.fillStyle = 'rgba(10,10,30,0.6)';
+    ctx.fillStyle = areaBg;
     ctx.fillRect(rcx-60*dpr, rcy-16*dpr, 120*dpr, 38*dpr);
-    ctx.fillStyle = 'rgba(0, 229, 255, 0.9)'; ctx.font = `bold ${16*dpr}px system-ui`; ctx.textAlign = 'center';
+    ctx.fillStyle = areaColor; ctx.font = `bold ${16*dpr}px system-ui`; ctx.textAlign = 'center';
     ctx.fillText(fmtArea(r.room.area), rcx, rcy);
-    ctx.font = `${11*dpr}px system-ui`; ctx.fillStyle = 'rgba(0, 229, 255, 0.4)';
+    ctx.font = `${11*dpr}px system-ui`; ctx.fillStyle = darkTheme ? 'rgba(0,229,255,0.4)' : '#999';
     const altArea = useMetric ? `(${(r.room.area*10.764).toFixed(0)} ft²)` : `(${r.room.area.toFixed(1)} m²)`;
     ctx.fillText(altArea, rcx, rcy+16*dpr);
     ctx.textAlign = 'start';
@@ -841,10 +873,10 @@ function drawFP() {
 
   // Scale
   const bPx=1*scale, bY=h-20*dpr, bX=20*dpr;
-  ctx.strokeStyle='#555'; ctx.lineWidth=1.5*dpr;
+  ctx.strokeStyle=scaleColor; ctx.lineWidth=1.5*dpr;
   ctx.beginPath(); ctx.moveTo(bX,bY); ctx.lineTo(bX+bPx,bY); ctx.stroke();
   [bX, bX+bPx].forEach(x => { ctx.beginPath(); ctx.moveTo(x,bY-3*dpr); ctx.lineTo(x,bY+3*dpr); ctx.stroke(); });
-  ctx.fillStyle='#555'; ctx.font=`${9*dpr}px system-ui`; ctx.fillText('1m',bX+bPx/2-6*dpr,bY+14*dpr);
+  ctx.fillStyle=scaleColor; ctx.font=`${9*dpr}px system-ui`; ctx.fillText(useMetric?'1m':'3ft',bX+bPx/2-6*dpr,bY+14*dpr);
 }
 
 window.exportDXF = () => {
@@ -941,11 +973,8 @@ window.exportSVG = () => {
   a.download = 'floorplan.svg'; a.click();
 };
 
-window.toggleUnits = () => {
-  useMetric = !useMetric;
-  drawFP();
-  updateStats();
-};
+window.toggleUnits = () => { useMetric = !useMetric; drawFP(); updateStats(); };
+window.toggleTheme = () => { darkTheme = !darkTheme; drawFP(); };
 
 window.loadDemo = async () => {
   progress('Loading demo scan...');
