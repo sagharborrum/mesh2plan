@@ -42,12 +42,12 @@ body { background: #1a1a2e; color: #eee; font-family: system-ui, sans-serif; ove
 </style>
 </head>
 <body>
-<div id="dropzone"><span>Drop OBJ + MTL + texture files</span></div>
+<div id="dropzone"><span>Drop OBJ / GLB files to analyze</span></div>
 <div id="loading">
   <div class="title">mesh2plan</div>
-  <div class="sub">3D mesh → floor plan in your browser</div>
-  <div class="drop-hint" id="dropHint">Drop OBJ (+ MTL + texture) here — or click to browse</div>
-  <input type="file" id="fileInput" accept=".obj" style="display:none">
+  <div class="sub">3D mesh → floor plan, entirely in your browser</div>
+  <div class="drop-hint" id="dropHint">Drop 3D mesh here (OBJ / GLB / PLY / STL) — or click to browse</div>
+  <input type="file" id="fileInput" accept=".obj,.glb,.gltf,.ply,.stl" style="display:none" multiple>
   <div id="progress"></div>
 </div>
 <div id="container">
@@ -84,6 +84,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { PLYLoader } from 'three/addons/loaders/PLYLoader.js';
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 
 const CC = {
   wallLine: '#00E5FF', dim: '#FFD54F', door: '#2196F3', window: '#4CAF50',
@@ -135,15 +138,65 @@ document.addEventListener('dragleave', e => { if (e.relatedTarget === null) drop
 document.addEventListener('drop', e => {
   e.preventDefault(); dropzone.classList.remove('active');
   const files = Array.from(e.dataTransfer.files);
+  const glbFile = files.find(f => /\.(glb|gltf)$/i.test(f.name));
+  const plyFile = files.find(f => f.name.toLowerCase().endsWith('.ply'));
+  const stlFile = files.find(f => f.name.toLowerCase().endsWith('.stl'));
   const objFile = files.find(f => f.name.toLowerCase().endsWith('.obj'));
   const mtlFile = files.find(f => f.name.toLowerCase().endsWith('.mtl'));
   const texFiles = files.filter(f => /\.(jpg|jpeg|png|webp)$/i.test(f.name));
-  if (objFile) loadOBJWithTexture(objFile, mtlFile, texFiles);
+  if (glbFile) loadGLB(glbFile);
+  else if (plyFile) loadPLY(plyFile);
+  else if (stlFile) loadSTL(stlFile);
+  else if (objFile) loadOBJWithTexture(objFile, mtlFile, texFiles);
 });
 
 fileInput.addEventListener('change', e => {
-  if (e.target.files[0]) loadOBJWithTexture(e.target.files[0], null, []);
+  const files = Array.from(e.target.files);
+  const glbFile = files.find(f => /\.(glb|gltf)$/i.test(f.name));
+  const plyFile = files.find(f => f.name.toLowerCase().endsWith('.ply'));
+  const stlFile = files.find(f => f.name.toLowerCase().endsWith('.stl'));
+  const objFile = files.find(f => f.name.toLowerCase().endsWith('.obj'));
+  if (glbFile) loadGLB(glbFile);
+  else if (plyFile) loadPLY(plyFile);
+  else if (stlFile) loadSTL(stlFile);
+  else if (objFile) loadOBJWithTexture(objFile, null, []);
 });
+
+async function loadGLB(file) {
+  progress(`Loading ${file.name} (${(file.size/1e6).toFixed(1)}MB)...`);
+  const buffer = await file.arrayBuffer();
+  const loader = new GLTFLoader();
+  loader.parse(buffer, '', (gltf) => {
+    setupMesh(gltf.scene, true);
+  }, (err) => {
+    progress(`Error loading GLB: ${err}`);
+  });
+}
+
+async function loadPLY(file) {
+  progress(`Loading ${file.name} (${(file.size/1e6).toFixed(1)}MB)...`);
+  const buffer = await file.arrayBuffer();
+  const loader = new PLYLoader();
+  const geometry = loader.parse(buffer);
+  geometry.computeVertexNormals();
+  const material = new THREE.MeshPhongMaterial({ color: 0xccddee, transparent: true, opacity: 0.6, side: THREE.DoubleSide, flatShading: true,
+    vertexColors: geometry.hasAttribute('color') });
+  const mesh = new THREE.Mesh(geometry, material);
+  const group = new THREE.Group(); group.add(mesh);
+  setupMesh(group, geometry.hasAttribute('color'));
+}
+
+async function loadSTL(file) {
+  progress(`Loading ${file.name} (${(file.size/1e6).toFixed(1)}MB)...`);
+  const buffer = await file.arrayBuffer();
+  const loader = new STLLoader();
+  const geometry = loader.parse(buffer);
+  geometry.computeVertexNormals();
+  const material = new THREE.MeshPhongMaterial({ color: 0xccddee, transparent: true, opacity: 0.6, side: THREE.DoubleSide, flatShading: true });
+  const mesh = new THREE.Mesh(geometry, material);
+  const group = new THREE.Group(); group.add(mesh);
+  setupMesh(group, false);
+}
 
 async function loadOBJWithTexture(objFile, mtlFile, texFiles) {
   if (mtlFile && texFiles.length > 0) {
