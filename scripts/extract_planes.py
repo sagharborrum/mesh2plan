@@ -10,17 +10,15 @@ from sklearn.cluster import DBSCAN
 from pathlib import Path
 
 def detect_up_axis(points):
-    """Detect which axis is 'up' based on bounding box — shortest extent is usually vertical for room scans."""
-    bbox = points.max(axis=0) - points.min(axis=0)
-    # For room scans, the vertical axis typically has the smallest range (room height < width/length)
-    # But also consider: gravity direction in iOS is -Y in ARKit
-    # Heuristic: check if Y-range looks like room height (2-4m) 
-    # For this scan: X=1.74, Y=2.70, Z=0.52 → Z is thinnest (depth of scan), Y is tallest
-    # ARKit convention: Y is up
-    return 1  # Y-up for ARKit data
+    """Detect up axis: the one with the largest extent (room height for wall scans)."""
+    extents = points.max(axis=0) - points.min(axis=0)
+    # Y has 2.7m extent (tallest) = vertical axis
+    return int(np.argmax(extents))
 
-def classify_plane(normal, up_axis=1, threshold=0.3):
+def classify_plane(normal, up_axis=None, threshold=0.3):
     """Classify plane by normal direction relative to up axis."""
+    if up_axis is None:
+        up_axis = 1  # default Y-up
     up = np.zeros(3)
     up[up_axis] = 1.0
     
