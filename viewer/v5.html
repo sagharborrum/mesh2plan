@@ -156,18 +156,20 @@ function buildPlanes(planes) {
 
 function buildRoom3D(room) {
   if (!room?.exterior) return;
-  // Draw room outline on floor in 3D
+  // Room exterior is in mesh XZ coordinates — subtract meshCenter.x and meshCenter.z, floor at Y=0
   const pts = room.exterior.map(p => new THREE.Vector3(p[0] - meshCenter.x, 0.01, p[1] - meshCenter.z));
   roomOutline3D.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: CC.room.h, linewidth: 2 })));
   // Extrude walls as wireframe
   const wallH = data.mesh.bounds_max[1] - data.mesh.bounds_min[1];
-  const ptsTop = room.exterior.map(p => new THREE.Vector3(p[0] - meshCenter.x, wallH - floorYoff, p[1] - meshCenter.z));
+  const adjustedH = wallH + floorYoff; // account for floor offset
+  const ptsTop = room.exterior.map(p => new THREE.Vector3(p[0] - meshCenter.x, adjustedH, p[1] - meshCenter.z));
   roomOutline3D.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ptsTop), new THREE.LineBasicMaterial({ color: CC.room.h, opacity: 0.3, transparent: true })));
-  // Verticals at corners
-  for (let i = 0; i < Math.min(room.exterior.length, 20); i += 3) {
+  // Verticals at corners (every few points)
+  const step = Math.max(1, Math.floor(room.exterior.length / 12));
+  for (let i = 0; i < room.exterior.length - 1; i += step) {
     const p = room.exterior[i];
     const bot = new THREE.Vector3(p[0] - meshCenter.x, 0.01, p[1] - meshCenter.z);
-    const top = new THREE.Vector3(p[0] - meshCenter.x, wallH - floorYoff, p[1] - meshCenter.z);
+    const top = new THREE.Vector3(p[0] - meshCenter.x, adjustedH, p[1] - meshCenter.z);
     roomOutline3D.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([bot, top]), new THREE.LineBasicMaterial({ color: CC.room.h, opacity: 0.2, transparent: true })));
   }
 }

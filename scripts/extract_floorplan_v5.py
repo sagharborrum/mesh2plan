@@ -22,16 +22,16 @@ class NpEncoder(json.JSONEncoder):
         return super().default(obj)
 
 def slice_mesh(mesh, height):
-    """Slice mesh and return 2D paths."""
+    """Slice mesh and return 2D paths + the 3D→2D transform."""
     normal = np.zeros(3); normal[UP_AXIS] = 1.0
     origin = np.zeros(3); origin[UP_AXIS] = height
     try:
         section = mesh.section(plane_origin=origin, plane_normal=normal)
-        if section is None: return None
+        if section is None: return None, None
         planar, to_3d = section.to_planar()
-        return planar
+        return planar, to_3d
     except:
-        return None
+        return None, None
 
 def simplify_path(vertices, tolerance=0.02):
     """Simplify a path using Douglas-Peucker."""
@@ -59,71 +59,65 @@ def extract_room_polygon(mesh, n_slices=20, simplify_tol=0.03):
     print(f"Slicing mesh at {n_slices} heights ({y_min:.2f} to {y_max:.2f})")
     
     for h in heights:
-        planar = slice_mesh(mesh, h)
+        planar, to_3d = slice_mesh(mesh, h)
         if planar is None: continue
         
-        paths = []
+        paths_2d = []  # in planar space (for floor plan canvas)
+        paths_3d_xz = []  # in mesh XZ coords (for 3D overlay + room polygon)
+        
         for entity in planar.entities:
-            pts = planar.vertices[entity.points]
-            if len(pts) < 2: continue
-            simplified = simplify_path(pts, simplify_tol)
-            paths.append(simplified)
+            pts_2d = planar.vertices[entity.points]
+            if len(pts_2d) < 2: continue
             
-            # Create shapely lines
-            if len(simplified) >= 2:
-                all_lines.append(LineString(simplified))
+            # Transform 2D planar points back to 3D using to_3d matrix
+            pts_homo = np.column_stack([pts_2d, np.zeros(len(pts_2d)), np.ones(len(pts_2d))])
+            pts_3d = (to_3d @ pts_homo.T).T[:, :3]
+            
+            # Project to XZ plane (mesh coordinates)
+            pts_xz = pts_3d[:, [0, 2]]  # X, Z
+            
+            simplified_xz = simplify_path(pts_xz, simplify_tol)
+            simplified_2d = simplify_path(pts_2d, simplify_tol)
+            paths_2d.append(simplified_2d)
+            paths_3d_xz.append(simplified_xz)
+            
+            if len(simplified_xz) >= 2:
+                all_lines.append(LineString(simplified_xz))
         
-        # Try to get closed polygons
-        try:
-            for poly in planar.polygons_full:
-                ext = np.array(poly.exterior.coords)
-                simplified_ext = simplify_path(ext, simplify_tol)
-                if len(simplified_ext) >= 4:
-                    try:
-                        sp = Polygon(simplified_ext)
-                        if sp.is_valid and sp.area > 0.1:
-                            all_polygons.append(sp)
-                    except: pass
-        except: pass
+        # Skip polygons_full — it hangs on complex meshes. Use lines only.
         
-        n_pts = sum(len(p) for p in paths)
+        n_pts = sum(len(p) for p in paths_3d_xz)
         slice_data.append({
             "height": float(h),
-            "paths": [p.tolist() for p in paths],
-            "n_paths": len(paths),
+            "paths": [p.tolist() for p in paths_3d_xz],  # Store XZ coords
+            "n_paths": len(paths_3d_xz),
             "n_points": n_pts,
         })
-        print(f"  y={h:.3f}: {len(paths)} paths, {n_pts} pts")
+        print(f"  y={h:.3f}: {len(paths_3d_xz)} paths, {n_pts} pts")
     
-    # Composite: merge all polygons
+    # Build room polygon from best slice's convex hull of all points
     room_polygon = None
     room_outline = None
     
-    if all_polygons:
-        try:
-            merged = unary_union(all_polygons)
-            if isinstance(merged, Polygon) and merged.area > 0.5:
-                room_polygon = merged
-            elif isinstance(merged, MultiPolygon):
-                # Take largest
-                largest = max(merged.geoms, key=lambda p: p.area)
-                if largest.area > 0.5:
-                    room_polygon = largest
-        except: pass
+    # Collect all XZ points from all slices
+    all_pts_xz = []
+    for line in all_lines:
+        all_pts_xz.extend(list(line.coords))
     
-    # If no polygon from slices, try polygonizing the lines
-    if room_polygon is None and all_lines:
+    if len(all_pts_xz) > 10:
+        all_pts_xz = np.array(all_pts_xz)
         try:
-            merged_lines = unary_union(all_lines)
-            # Buffer lines slightly and take convex hull as fallback
-            buffered = merged_lines.buffer(0.05)
-            if isinstance(buffered, Polygon) and buffered.area > 0.5:
-                room_polygon = buffered.simplify(simplify_tol * 2)
-            elif isinstance(buffered, MultiPolygon):
-                largest = max(buffered.geoms, key=lambda p: p.area)
-                if largest.area > 0.5:
-                    room_polygon = largest.simplify(simplify_tol * 2)
-        except: pass
+            # Use concave hull (alpha shape) via buffered convex hull
+            from scipy.spatial import ConvexHull
+            hull = ConvexHull(all_pts_xz)
+            hull_pts = all_pts_xz[hull.vertices]
+            room_polygon = Polygon(hull_pts)
+            if not room_polygon.is_valid:
+                room_polygon = room_polygon.buffer(0)
+            room_polygon = room_polygon.simplify(simplify_tol)
+            print(f"\nConvex hull room: {room_polygon.area:.2f}m²")
+        except Exception as e:
+            print(f"Hull failed: {e}")
     
     # Simplify room polygon
     if room_polygon:
