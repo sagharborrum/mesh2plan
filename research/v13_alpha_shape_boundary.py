@@ -1,17 +1,23 @@
 #!/usr/bin/env python3
 """
-v13: Alpha Shape Based Room Boundary Extraction
-===============================================
+v13: Alpha Shape Based Room Boundary Extraction (FIXED)
+=======================================================
 
-Approach:
-1. Extract mesh vertices at a specific height range (floor level)
-2. Project points to 2D (X-Z plane)
-3. Use Alpha Shapes to create a boundary that can handle concave shapes
-4. Refine the boundary to remove interior details
-5. Detect openings as concave regions in the alpha shape
+FIXES APPLIED:
+- Expand floor detection band to use proper wall-height range like v9
+- Auto-tune alpha parameter based on data characteristics
+- Reduce boundary refinement aggressiveness
+- Use floor level detection like other fixed approaches
+- Better opening detection using gap analysis
+- Improve alpha shape computation for better concave boundaries
 
-Alpha shapes are a generalization of convex hulls that can capture 
-concave boundaries by controlling the "alpha" parameter.
+This approach:
+1. Find floor level using histogram like v9
+2. Extract points at wall height (foot-points)  
+3. Auto-tune alpha parameter for optimal boundary
+4. Use Alpha Shapes to handle concave room shapes
+5. Apply gentle boundary refinement
+6. Detect openings via concavity and gap analysis
 """
 
 import numpy as np
@@ -35,55 +41,139 @@ class NpEncoder(json.JSONEncoder):
         if isinstance(obj, (np.bool_,)): return bool(obj)
         return super().default(obj)
 
-def extract_floor_points(mesh, floor_height_range=None, sample_ratio=0.1):
-    """Extract points at floor level"""
-    print("Extracting floor-level points...")
+def find_floor_level(mesh):
+    """Find floor level using Z-coordinate histogram"""
+    print("Finding floor level...")
+    
+    z_coords = mesh.vertices[:, 2]
+    z_min, z_max = z_coords.min(), z_coords.max()
+    
+    # Create histogram
+    bins = 50
+    hist, bin_edges = np.histogram(z_coords, bins=bins)
+    
+    # Floor is typically the lowest significant peak
+    bottom_30_idx = int(0.3 * bins)
+    bottom_hist = hist[:bottom_30_idx]
+    
+    if len(bottom_hist) > 0:
+        floor_bin_idx = np.argmax(bottom_hist)
+        floor_level = bin_edges[floor_bin_idx]
+    else:
+        floor_level = z_min
+    
+    print(f"Floor level detected at Z = {floor_level:.2f}m")
+    return floor_level
+
+def extract_wall_footpoints(mesh, floor_level, height_range=(0.0, 0.8), sample_ratio=0.3):
+    """Extract points near floor level (wall foot-points) - EXPANDED RANGE"""
+    print(f"Extracting wall foot-points {height_range[0]}-{height_range[1]}m above floor...")
     
     vertices = mesh.vertices
+    total_height = vertices[:, 2].max() - vertices[:, 2].min()
     
-    # Determine floor height range
-    if floor_height_range is None:
-        y_min = vertices[:, 1].min()
-        y_max = vertices[:, 1].max()
-        height_range = y_max - y_min
-        floor_height_range = (y_min, y_min + height_range * 0.1)  # Bottom 10%
+    # Adapt to small meshes
+    if total_height < 2.0:
+        print(f"  Small mesh height ({total_height:.2f}m), using adaptive range...")
+        z_min = floor_level + total_height * 0.1
+        z_max = floor_level + total_height * 0.7
+    else:
+        z_min = floor_level + height_range[0]
+        z_max = floor_level + height_range[1]
     
-    print(f"  Floor height range: {floor_height_range[0]:.2f} - {floor_height_range[1]:.2f} m")
+    print(f"  Height range: {z_min:.2f} - {z_max:.2f} m")
     
     # Filter vertices by height
-    floor_mask = ((vertices[:, 1] >= floor_height_range[0]) & 
-                  (vertices[:, 1] <= floor_height_range[1]))
-    floor_points = vertices[floor_mask]
+    height_mask = (vertices[:, 2] >= z_min) & (vertices[:, 2] <= z_max)
+    wall_points = vertices[height_mask]
     
-    print(f"  Floor points before sampling: {len(floor_points):,}")
+    print(f"  Wall points before sampling: {len(wall_points):,}")
     
-    # Sample points to reduce density for alpha shape computation
-    if len(floor_points) > 1000:
-        n_samples = max(1000, int(len(floor_points) * sample_ratio))
-        indices = np.random.choice(len(floor_points), n_samples, replace=False)
-        floor_points = floor_points[indices]
+    # Sample points but less aggressively
+    if len(wall_points) > 2000:
+        n_samples = max(2000, int(len(wall_points) * sample_ratio))
+        indices = np.random.choice(len(wall_points), n_samples, replace=False)
+        wall_points = wall_points[indices]
     
-    print(f"  Floor points after sampling: {len(floor_points):,}")
+    print(f"  Wall points after sampling: {len(wall_points):,}")
     
-    return floor_points
+    return wall_points
 
 def points_to_2d(points_3d):
-    """Project 3D points to 2D (X-Z plane)"""
-    return points_3d[:, [0, 2]]  # Take X and Z coordinates
+    """Project 3D points to 2D (X-Y plane for top-down view)"""
+    return points_3d[:, [0, 1]]  # Take X and Y coordinates
 
-def compute_alpha_shape(points_2d, alpha=1.0):
+def auto_tune_alpha(points_2d, alpha_candidates=None):
+    """Auto-tune alpha parameter for optimal boundary"""
+    print("Auto-tuning alpha parameter...")
+    
+    if alpha_candidates is None:
+        # Create range of alpha values to test
+        alpha_candidates = [0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0]
+    
+    best_alpha = alpha_candidates[0]
+    best_score = -1
+    best_boundary_length = 0
+    
+    for alpha in alpha_candidates:
+        try:
+            boundary_edges, triangles = compute_alpha_shape(points_2d, alpha, verbose=False)
+            
+            if not boundary_edges:
+                continue
+            
+            # Score based on boundary complexity and reasonableness
+            boundary_points = edges_to_boundary_polygon(boundary_edges, points_2d, verbose=False)
+            
+            if len(boundary_points) < 4:  # Too simple
+                continue
+            
+            if len(boundary_points) > 50:  # Too complex
+                continue
+            
+            # Calculate boundary length
+            boundary_length = 0
+            for i in range(len(boundary_points)):
+                p1 = np.array(boundary_points[i])
+                p2 = np.array(boundary_points[(i + 1) % len(boundary_points)])
+                boundary_length += np.linalg.norm(p2 - p1)
+            
+            # Score: prefer moderate complexity with reasonable perimeter
+            complexity_score = 1.0 / (1 + abs(len(boundary_points) - 12))  # Target ~12 points
+            length_reasonableness = 1.0 / (1 + abs(boundary_length - 20))  # Target ~20m perimeter
+            
+            score = complexity_score * length_reasonableness
+            
+            if score > best_score:
+                best_score = score
+                best_alpha = alpha
+                best_boundary_length = boundary_length
+            
+            print(f"    Alpha {alpha}: {len(boundary_points)} points, {boundary_length:.1f}m perimeter, score {score:.3f}")
+            
+        except Exception as e:
+            print(f"    Alpha {alpha}: Failed ({e})")
+            continue
+    
+    print(f"  Best alpha: {best_alpha} (score: {best_score:.3f}, perimeter: {best_boundary_length:.1f}m)")
+    return best_alpha
+
+def compute_alpha_shape(points_2d, alpha=1.0, verbose=True):
     """Compute alpha shape (concave hull) of 2D points"""
-    print(f"Computing alpha shape (alpha = {alpha})...")
+    if verbose:
+        print(f"Computing alpha shape (alpha = {alpha})...")
     
     if len(points_2d) < 3:
-        print("  Not enough points for triangulation")
+        if verbose:
+            print("  Not enough points for triangulation")
         return [], []
     
     # Delaunay triangulation
     try:
         tri = Delaunay(points_2d)
     except Exception as e:
-        print(f"  Error in triangulation: {e}")
+        if verbose:
+            print(f"  Error in triangulation: {e}")
         return [], []
     
     # Find triangles and edges
@@ -117,10 +207,12 @@ def compute_alpha_shape(points_2d, alpha=1.0):
         if circumr <= 1.0 / alpha:
             valid_triangles.append(triangle)
     
-    print(f"  Valid triangles: {len(valid_triangles)} / {len(triangles)}")
+    if verbose:
+        print(f"  Valid triangles: {len(valid_triangles)} / {len(triangles)}")
     
     if not valid_triangles:
-        print("  No valid triangles found - alpha may be too small")
+        if verbose:
+            print("  No valid triangles found - alpha may be too small")
         return [], []
     
     # Extract boundary edges
@@ -134,13 +226,15 @@ def compute_alpha_shape(points_2d, alpha=1.0):
     # Boundary edges appear only once
     boundary_edges = [edge for edge, count in edge_count.items() if count == 1]
     
-    print(f"  Boundary edges: {len(boundary_edges)}")
+    if verbose:
+        print(f"  Boundary edges: {len(boundary_edges)}")
     
     return boundary_edges, valid_triangles
 
-def edges_to_boundary_polygon(boundary_edges, points_2d):
+def edges_to_boundary_polygon(boundary_edges, points_2d, verbose=True):
     """Convert boundary edges to ordered polygon"""
-    print("Converting edges to boundary polygon...")
+    if verbose:
+        print("Converting edges to boundary polygon...")
     
     if not boundary_edges:
         return []
@@ -151,7 +245,7 @@ def edges_to_boundary_polygon(boundary_edges, points_2d):
         adjacency[edge[0]].append(edge[1])
         adjacency[edge[1]].append(edge[0])
     
-    # Find the longest connected component
+    # Find the longest connected component (main boundary)
     visited = set()
     longest_path = []
     
@@ -179,22 +273,89 @@ def edges_to_boundary_polygon(boundary_edges, points_2d):
             longest_path = current_path
     
     # Convert indices to coordinates
-    boundary_points = [points_2d[i] for i in longest_path]
+    boundary_points = [points_2d[i].tolist() for i in longest_path]
     
-    print(f"  Boundary polygon has {len(boundary_points)} points")
+    if verbose:
+        print(f"  Boundary polygon has {len(boundary_points)} points")
     
     return boundary_points
 
-def detect_alpha_shape_openings(boundary_points, concavity_threshold=0.5):
-    """Detect openings based on concave regions in alpha shape"""
-    print("Detecting openings from alpha shape concavities...")
+def gentle_boundary_refinement(boundary_points, simplification_threshold=0.05):
+    """Gently simplify boundary - LESS AGGRESSIVE"""
+    print("Gently refining boundary...")
+    
+    if len(boundary_points) < 4:
+        return boundary_points
+    
+    refined_points = []
+    
+    for i in range(len(boundary_points)):
+        current = np.array(boundary_points[i])
+        prev_pt = np.array(boundary_points[(i - 1) % len(boundary_points)])
+        next_pt = np.array(boundary_points[(i + 1) % len(boundary_points)])
+        
+        # Check if current point is roughly on line between prev and next
+        if np.linalg.norm(next_pt - prev_pt) < 1e-6:
+            refined_points.append(boundary_points[i])
+            continue
+        
+        # Distance from current point to line prev->next
+        line_vec = next_pt - prev_pt
+        point_vec = current - prev_pt
+        
+        # Project point onto line
+        t = np.dot(point_vec, line_vec) / np.dot(line_vec, line_vec)
+        projection = prev_pt + t * line_vec
+        distance = np.linalg.norm(current - projection)
+        
+        # Keep point if it's far enough from the line (gentler threshold)
+        if distance > simplification_threshold:
+            refined_points.append(boundary_points[i])
+    
+    print(f"  Gently refined from {len(boundary_points)} to {len(refined_points)} points")
+    
+    # Ensure we keep reasonable complexity
+    if len(refined_points) < 4:
+        print("  Refinement too aggressive, keeping original boundary")
+        return boundary_points
+    
+    return refined_points
+
+def detect_openings_improved(boundary_points, gap_threshold=0.8, concavity_threshold=0.3):
+    """Improved opening detection using both gaps and concavity"""
+    print("Detecting openings using improved gap and concavity analysis...")
     
     openings = []
     
     if len(boundary_points) < 4:
         return openings
     
-    # Analyze angles between consecutive boundary segments
+    # Method 1: Gap analysis - look for unusually long edges
+    edge_lengths = []
+    for i in range(len(boundary_points)):
+        p1 = np.array(boundary_points[i])
+        p2 = np.array(boundary_points[(i + 1) % len(boundary_points)])
+        edge_lengths.append(np.linalg.norm(p2 - p1))
+    
+    # Find edges significantly longer than median (potential openings)
+    median_length = np.median(edge_lengths)
+    
+    for i, length in enumerate(edge_lengths):
+        if length > max(gap_threshold, median_length * 2):  # Either absolute or relative threshold
+            p1 = np.array(boundary_points[i])
+            p2 = np.array(boundary_points[(i + 1) % len(boundary_points)])
+            
+            center = (p1 + p2) / 2
+            opening_type = "door" if length < 2.0 else "window"
+            
+            openings.append({
+                "type": opening_type,
+                "position": center.tolist(),
+                "width": float(length),
+                "detection_method": "gap_analysis"
+            })
+    
+    # Method 2: Concavity analysis for sharp inward angles
     for i in range(len(boundary_points)):
         p1 = np.array(boundary_points[(i-1) % len(boundary_points)])
         p2 = np.array(boundary_points[i])
@@ -204,112 +365,100 @@ def detect_alpha_shape_openings(boundary_points, concavity_threshold=0.5):
         v1 = p1 - p2
         v2 = p3 - p2
         
+        if np.linalg.norm(v1) < 1e-6 or np.linalg.norm(v2) < 1e-6:
+            continue
+        
         # Angle between vectors
-        cos_angle = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2) + 1e-10)
+        cos_angle = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
         cos_angle = np.clip(cos_angle, -1, 1)
         angle = math.acos(cos_angle)
         
-        # Check for sharp concave angles (potential openings)
-        if angle < math.pi - concavity_threshold:  # Sharp inward turn
+        # Cross product to determine if it's concave (inward)
+        cross = np.cross(v1, v2)
+        
+        # Check for sharp concave angles (inward turns)
+        if cross < 0 and angle < math.pi - concavity_threshold:  # Sharp inward turn
             gap_length = np.linalg.norm(p3 - p1)
             
-            if 0.5 < gap_length < 5.0:  # Reasonable opening size
-                opening_type = "door" if gap_length < 2.0 else "window"
+            if 0.5 < gap_length < 3.0:  # Reasonable opening size
+                # Check if we already found this opening via gap analysis
                 center = (p1 + p3) / 2
+                is_duplicate = any(np.linalg.norm(np.array(op['position']) - center) < 0.5 
+                                 for op in openings)
                 
-                openings.append({
-                    "type": opening_type,
-                    "position": center.tolist(),
-                    "size_meters": float(gap_length),
-                    "angle_radians": float(angle)
-                })
+                if not is_duplicate:
+                    opening_type = "door" if gap_length < 1.8 else "window"
+                    
+                    openings.append({
+                        "type": opening_type,
+                        "position": center.tolist(),
+                        "width": float(gap_length),
+                        "detection_method": "concavity_analysis",
+                        "angle_radians": float(angle)
+                    })
     
     print(f"  Found {len(openings)} potential openings")
     return openings
 
-def refine_boundary(boundary_points, simplification_threshold=0.1):
-    """Simplify boundary by removing redundant points"""
-    print("Refining boundary...")
-    
-    if len(boundary_points) < 3:
-        return boundary_points
-    
-    refined_points = [boundary_points[0]]  # Always keep first point
-    
-    for i in range(1, len(boundary_points) - 1):
-        p1 = np.array(refined_points[-1])
-        p2 = np.array(boundary_points[i])
-        p3 = np.array(boundary_points[i + 1])
-        
-        # Check if middle point is close to the line between p1 and p3
-        # Distance from point to line
-        line_vec = p3 - p1
-        point_vec = p2 - p1
-        
-        if np.linalg.norm(line_vec) < 1e-10:
-            continue
-            
-        # Project point onto line
-        t = np.dot(point_vec, line_vec) / np.dot(line_vec, line_vec)
-        projection = p1 + t * line_vec
-        distance = np.linalg.norm(p2 - projection)
-        
-        # Keep point if it's far enough from the line
-        if distance > simplification_threshold:
-            refined_points.append(boundary_points[i])
-    
-    refined_points.append(boundary_points[-1])  # Always keep last point
-    
-    print(f"  Refined from {len(boundary_points)} to {len(refined_points)} points")
-    return refined_points
-
-def analyze_mesh_alpha_shape(mesh_path, alpha=0.5, floor_height_range=None):
-    """Main analysis function"""
-    print(f"\n=== Alpha Shape Boundary Extraction: {mesh_path} ===")
+def analyze_mesh_alpha_shape(mesh_path, auto_tune=True):
+    """Main analysis function with fixes applied"""
+    print(f"\n=== Alpha Shape Boundary Extraction v13 (FIXED): {mesh_path} ===")
     
     # Load mesh
     print("Loading mesh...")
     mesh = trimesh.load(mesh_path)
-    if hasattr(mesh, 'vertices'):
-        print(f"Loaded mesh: {len(mesh.vertices):,} vertices, {len(mesh.faces):,} faces")
-    else:
+    if not hasattr(mesh, 'vertices'):
         print("Error loading mesh")
         return None
     
-    # Step 1: Extract floor-level points
-    floor_points_3d = extract_floor_points(mesh, floor_height_range)
+    print(f"Loaded mesh: {len(mesh.vertices):,} vertices, {len(mesh.faces):,} faces")
     
-    if len(floor_points_3d) < 3:
-        print("Not enough floor points found!")
+    # Step 1: Find floor level (like v9)
+    floor_level = find_floor_level(mesh)
+    
+    # Step 2: Extract wall foot-points with expanded range
+    wall_points_3d = extract_wall_footpoints(mesh, floor_level)
+    
+    if len(wall_points_3d) < 10:
+        print("Not enough wall points found!")
         return None
     
-    # Step 2: Project to 2D
-    floor_points_2d = points_to_2d(floor_points_3d)
+    # Step 3: Project to 2D
+    wall_points_2d = points_to_2d(wall_points_3d)
     
-    # Step 3: Compute alpha shape
-    boundary_edges, triangles = compute_alpha_shape(floor_points_2d, alpha)
+    # Step 4: Auto-tune alpha parameter
+    if auto_tune:
+        alpha = auto_tune_alpha(wall_points_2d)
+    else:
+        alpha = 1.0  # Default fallback
+    
+    # Step 5: Compute alpha shape
+    boundary_edges, triangles = compute_alpha_shape(wall_points_2d, alpha)
     
     if not boundary_edges:
-        print("No boundary found - trying larger alpha...")
-        alpha *= 2
-        boundary_edges, triangles = compute_alpha_shape(floor_points_2d, alpha)
+        print("No boundary found - trying fallback alpha values...")
+        for fallback_alpha in [0.5, 2.0, 5.0]:
+            boundary_edges, triangles = compute_alpha_shape(wall_points_2d, fallback_alpha)
+            if boundary_edges:
+                alpha = fallback_alpha
+                break
         
         if not boundary_edges:
             print("Still no boundary found!")
             return None
     
-    # Step 4: Convert edges to polygon
-    boundary_points = edges_to_boundary_polygon(boundary_edges, floor_points_2d)
+    # Step 6: Convert edges to polygon
+    boundary_points = edges_to_boundary_polygon(boundary_edges, wall_points_2d)
     
     if not boundary_points:
         print("Could not form boundary polygon!")
         return None
     
-    # Step 5: Refine boundary
-    refined_boundary = refine_boundary(boundary_points)
+    # Step 7: Gentle boundary refinement
+    refined_boundary = gentle_boundary_refinement(boundary_points)
     
-    # Step 6: Detect openings
-    openings = detect_alpha_shape_openings(refined_boundary)
+    # Step 8: Improved opening detection
+    openings = detect_openings_improved(refined_boundary)
     
     # Calculate room area
     if len(refined_boundary) >= 3:
@@ -323,12 +472,14 @@ def analyze_mesh_alpha_shape(mesh_path, alpha=0.5, floor_height_range=None):
         area = 0.0
     
     return {
-        "method": "alpha_shape_boundary_v13",
+        "method": "alpha_shape_boundary_v13_fixed",
         "mesh_file": str(mesh_path),
         "parameters": {
             "alpha": alpha,
-            "floor_height_range": floor_height_range,
-            "floor_points_3d": len(floor_points_3d)
+            "floor_level": float(floor_level),
+            "wall_height_range": [0.0, 0.8],
+            "auto_tuned": auto_tune,
+            "wall_points_3d": len(wall_points_3d)
         },
         "room_boundary": refined_boundary,
         "openings": openings,
@@ -342,104 +493,96 @@ def analyze_mesh_alpha_shape(mesh_path, alpha=0.5, floor_height_range=None):
         }
     }
 
-def create_visualization(result, floor_points_2d, triangles, boundary_edges, output_path):
-    """Create visualization of alpha shape analysis"""
-    print(f"Creating visualization: {output_path}")
+def create_visualization(result, output_path):
+    """Create floor plan visualization"""
+    if not result:
+        return
+        
+    print("Creating visualization...")
     
-    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 7))
     
-    # Plot 1: Floor points
-    ax1.scatter(floor_points_2d[:, 0], floor_points_2d[:, 1], 
-                alpha=0.5, s=1, c='blue', label='Floor Points')
-    ax1.set_title('Floor Points (2D Projection)')
-    ax1.set_xlabel('X (meters)')
-    ax1.set_ylabel('Z (meters)')
-    ax1.legend()
+    # Plot 1: Room boundary with alpha shape details
+    ax1.set_title(f"Alpha Shape Boundary\nArea: {result['room_area_sqm']:.1f} m² (α={result['parameters']['alpha']})")
+    ax1.set_xlabel("X (m)")
+    ax1.set_ylabel("Y (m)")
     ax1.grid(True, alpha=0.3)
     ax1.set_aspect('equal')
     
-    # Plot 2: Alpha shape triangulation
-    ax2.scatter(floor_points_2d[:, 0], floor_points_2d[:, 1], 
-                alpha=0.3, s=1, c='lightblue')
+    # Draw boundary
+    if len(result['room_boundary']) >= 3:
+        boundary = np.array(result['room_boundary'])
+        # Close the polygon
+        boundary_closed = np.vstack([boundary, boundary[0]])
+        ax1.fill(boundary_closed[:, 0], boundary_closed[:, 1], 
+                alpha=0.3, color='lightblue', edgecolor='blue', linewidth=2)
+        
+        # Mark vertices
+        ax1.scatter(boundary[:, 0], boundary[:, 1], 
+                   c='red', s=50, alpha=0.7, zorder=5)
+        
+        # Number the vertices
+        for i, point in enumerate(boundary):
+            ax1.annotate(str(i), point, xytext=(5, 5), textcoords='offset points',
+                        fontsize=8, ha='left')
     
-    # Draw triangles
-    for triangle in triangles:
-        triangle_points = floor_points_2d[triangle]
-        triangle_closed = np.vstack([triangle_points, triangle_points[0]])
-        ax2.plot(triangle_closed[:, 0], triangle_closed[:, 1], 'g-', alpha=0.3, linewidth=0.5)
-    
-    ax2.set_title('Alpha Shape Triangulation')
-    ax2.set_xlabel('X (meters)')
-    ax2.set_ylabel('Z (meters)')
-    ax2.grid(True, alpha=0.3)
-    ax2.set_aspect('equal')
-    
-    # Plot 3: Boundary edges
-    ax3.scatter(floor_points_2d[:, 0], floor_points_2d[:, 1], 
-                alpha=0.3, s=1, c='lightblue')
-    
-    # Draw boundary edges
-    for edge in boundary_edges:
-        p1, p2 = floor_points_2d[edge[0]], floor_points_2d[edge[1]]
-        ax3.plot([p1[0], p2[0]], [p1[1], p2[1]], 'r-', linewidth=2)
-    
-    ax3.set_title('Alpha Shape Boundary Edges')
-    ax3.set_xlabel('X (meters)')
-    ax3.set_ylabel('Z (meters)')
-    ax3.grid(True, alpha=0.3)
-    ax3.set_aspect('equal')
-    
-    # Plot 4: Final boundary polygon
-    if result['room_boundary']:
-        boundary = np.array(result['room_boundary'] + [result['room_boundary'][0]])
-        ax4.plot(boundary[:, 0], boundary[:, 1], 'b-', linewidth=3, label='Room Boundary')
-        ax4.fill(boundary[:, 0], boundary[:, 1], alpha=0.3, color='lightblue')
-    
-    # Plot openings
+    # Draw openings
     for opening in result['openings']:
         pos = opening['position']
-        ax4.plot(pos[0], pos[1], 'ro', markersize=10, label=f'{opening["type"].title()}')
+        ax1.plot(pos[0], pos[1], 'ro', markersize=12, alpha=0.8)
+        ax1.annotate(f"{opening['type']}\n{opening['width']:.1f}m", 
+                    (pos[0], pos[1]), xytext=(10, 10), textcoords='offset points',
+                    fontsize=8, ha='left', va='bottom',
+                    bbox=dict(boxstyle="round,pad=0.3", facecolor="yellow", alpha=0.7))
     
-    ax4.set_xlabel('X (meters)')
-    ax4.set_ylabel('Z (meters)')
-    ax4.set_title('Final Room Boundary')
-    ax4.legend()
-    ax4.grid(True, alpha=0.3)
-    ax4.set_aspect('equal')
+    # Plot 2: Analysis statistics
+    ax2.set_title("Analysis Statistics")
+    ax2.axis('off')
     
-    # Add stats text
-    stats_text = f"""ANALYSIS RESULTS (V13)
-    
+    stats_text = f"""ALPHA SHAPE ANALYSIS v13 (FIXED)
+
+RESULTS:
 Area: {result['room_area_sqm']:.2f} m² ({result['room_area_sqft']:.1f} ft²)
 Boundary Points: {len(result['room_boundary'])}
 Openings: {len(result['openings'])}
 
 PARAMETERS:
-Alpha: {result['parameters']['alpha']}
-Floor Points: {result['parameters']['floor_points_3d']:,}
+Alpha: {result['parameters']['alpha']} {'(auto-tuned)' if result['parameters']['auto_tuned'] else '(manual)'}
+Floor Level: {result['parameters']['floor_level']:.2f}m
+Wall Height Range: {result['parameters']['wall_height_range'][0]:.1f}-{result['parameters']['wall_height_range'][1]:.1f}m
+Wall Points: {result['parameters']['wall_points_3d']:,}
 
 ALPHA SHAPE STATS:
 Boundary Edges: {result['alpha_shape_stats']['boundary_edges']}
 Triangles: {result['alpha_shape_stats']['triangles']}
-Original Boundary: {result['alpha_shape_stats']['boundary_points']} points
-Refined Boundary: {result['alpha_shape_stats']['refined_points']} points
-"""
+Original Points: {result['alpha_shape_stats']['boundary_points']}
+Refined Points: {result['alpha_shape_stats']['refined_points']}
+
+OPENING DETAILS:"""
     
-    plt.figtext(0.02, 0.02, stats_text, fontsize=9, fontfamily='monospace',
-                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+    for i, opening in enumerate(result['openings']):
+        method = opening.get('detection_method', 'unknown')
+        stats_text += f"\n{i+1}. {opening['type']}: {opening['width']:.1f}m ({method})"
+    
+    ax2.text(0.05, 0.95, stats_text, transform=ax2.transAxes, fontsize=10,
+             verticalalignment='top', fontfamily='monospace',
+             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
     
     plt.tight_layout()
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
-    print(f"Saved visualization to {output_path}")
+    plt.close()
+    print(f"Visualization saved to {output_path}")
 
 def main():
+    import sys
+    
     if len(sys.argv) < 3:
         print("Usage: python v13_alpha_shape_boundary.py <mesh.obj> <output.json> [visualization.png]")
         return
     
     mesh_path = Path(sys.argv[1])
     output_path = Path(sys.argv[2])
-    viz_path = Path(sys.argv[3]) if len(sys.argv) > 3 else None
+    viz_path = Path(sys.argv[3]) if len(sys.argv) > 3 else output_path.with_suffix('.png')
     
     if not mesh_path.exists():
         print(f"Error: {mesh_path} not found")
@@ -454,21 +597,20 @@ def main():
                 json.dump(result, f, indent=2, cls=NpEncoder)
             print(f"\n✅ Results saved to {output_path}")
             
-            # Create visualization if requested
-            if viz_path:
-                # Re-run intermediate steps for visualization
-                mesh = trimesh.load(mesh_path)
-                floor_points_3d = extract_floor_points(mesh, result['parameters']['floor_height_range'])
-                floor_points_2d = points_to_2d(floor_points_3d)
-                boundary_edges, triangles = compute_alpha_shape(floor_points_2d, result['parameters']['alpha'])
-                create_visualization(result, floor_points_2d, triangles, boundary_edges, viz_path)
+            # Create visualization
+            create_visualization(result, viz_path)
             
             # Print summary
             print(f"\n📊 Summary:")
             print(f"   Room area: {result['room_area_sqm']:.1f} m² ({result['room_area_sqft']:.1f} ft²)")
             print(f"   Boundary points: {len(result['room_boundary'])}")
-            print(f"   Alpha shape triangles: {result['alpha_shape_stats']['triangles']}")
+            print(f"   Alpha parameter: {result['parameters']['alpha']} {'(auto-tuned)' if result['parameters']['auto_tuned'] else ''}")
+            print(f"   Triangles: {result['alpha_shape_stats']['triangles']}")
             print(f"   Openings: {len(result['openings'])}")
+            for opening in result['openings']:
+                method = opening.get('detection_method', '')
+                print(f"     - {opening['type']}: {opening['width']:.1f}m ({method})")
+            print(f"   Floor level: {result['parameters']['floor_level']:.2f}m")
         else:
             print("❌ Analysis failed")
             
@@ -478,5 +620,4 @@ def main():
         traceback.print_exc()
 
 if __name__ == "__main__":
-    import sys
     main()

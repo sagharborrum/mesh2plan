@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mesh2plan v13 - Alpha Shape Boundary Extraction</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a1a2e; color: #eee; font-family: system-ui, sans-serif; }
+
+#container { display: flex; width: 100vw; height: 100vh; }
+
+#visualizations { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+
+#header {
+  background: rgba(20, 20, 40, 0.92); border-radius: 12px; padding: 16px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+#header h1 { font-size: 20px; margin-bottom: 8px; color: #00E5FF; }
+#header .desc { font-size: 14px; color: #aaa; line-height: 1.5; }
+
+.test-section {
+  background: rgba(20, 20, 40, 0.8); border-radius: 12px; padding: 16px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.test-section h2 { font-size: 16px; margin-bottom: 12px; color: #888; }
+
+.viz-row { display: flex; gap: 20px; align-items: flex-start; }
+.viz-image { flex: 1; }
+.viz-image img { 
+  width: 100%; height: auto; border-radius: 8px; 
+  border: 1px solid rgba(255,255,255,0.1);
+  background: #111;
+}
+.viz-image .caption { 
+  text-align: center; margin-top: 8px; font-size: 12px; color: #666; 
+}
+
+#sidebar { 
+  width: 400px; background: #0f0f24; border-left: 1px solid rgba(255,255,255,0.08);
+  padding: 20px; overflow-y: auto;
+}
+
+.stats-panel {
+  background: rgba(20, 20, 40, 0.8); border-radius: 8px; padding: 16px;
+  margin-bottom: 16px; border: 1px solid rgba(255,255,255,0.08);
+}
+.stats-panel h3 { 
+  font-size: 13px; color: #555; text-transform: uppercase; 
+  letter-spacing: 1px; margin-bottom: 12px; 
+}
+.stat-row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px; }
+.stat-row .label { color: #888; }
+.stat-row .value { color: #eee; font-weight: 500; }
+
+.json-panel {
+  background: rgba(15, 15, 30, 0.9); border-radius: 8px; padding: 16px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.json-panel h3 { 
+  font-size: 13px; color: #555; text-transform: uppercase; 
+  letter-spacing: 1px; margin-bottom: 12px; 
+}
+.json-content {
+  font-family: 'Monaco', 'Menlo', monospace; font-size: 11px; color: #aaa;
+  background: #0a0a1a; padding: 12px; border-radius: 6px;
+  max-height: 400px; overflow-y: auto; line-height: 1.4;
+  white-space: pre-wrap; word-break: break-word;
+}
+
+.nav-bar {
+  position: fixed; top: 20px; right: 20px; z-index: 100;
+  display: flex; gap: 8px;
+}
+.nav-bar a {
+  background: rgba(20, 20, 40, 0.9); color: #aaa; text-decoration: none;
+  padding: 8px 12px; border-radius: 6px; font-size: 12px;
+  border: 1px solid rgba(255,255,255,0.1);
+  transition: all 0.2s;
+}
+.nav-bar a:hover { background: rgba(0,229,255,0.1); color: #00E5FF; }
+.nav-bar a.active { background: rgba(0,229,255,0.2); color: #00E5FF; }
+</style>
+</head>
+<body>
+
+<div class="nav-bar">
+  <a href="index.html">← Hub</a>
+  <a href="v9.html">v9</a>
+  <a href="v10.html">v10</a>
+  <a href="v11.html">v11</a>
+  <a href="v12.html">v12</a>
+  <a href="v13.html" class="active">v13</a>
+  <a href="v14.html">v14</a>
+  <a href="v15.html">v15</a>
+  <a href="v16.html">v16</a>
+</div>
+
+<div id="container">
+  <div id="visualizations">
+    <div id="header">
+      <h1>v13: Alpha Shape Boundary Extraction</h1>
+      <div class="desc">
+        Extract floor points, filter by height, use alpha shapes to define non-convex boundaries, refine with clustering and simplification.
+        <br><strong>Quality:</strong> ⭐⭐⭐⭐ - Good boundary detection, handles non-convex shapes well, sophisticated geometric approach.
+      </div>
+    </div>
+
+    <div class="test-section">
+      <h2>Test 1: Small Mesh (48K vertices)</h2>
+      <div class="viz-row">
+        <div class="viz-image">
+          <img src="../results/v13_tests/test1_visualization.png" alt="Test 1 Results">
+          <div class="caption">Small mesh: 1.38 m² (14.9 ft²), α=0.5</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="test-section">
+      <h2>Test 2: Large Mesh (232K vertices)</h2>
+      <div class="viz-row">
+        <div class="viz-image">
+          <img src="../results/v13_tests/test2_visualization.png" alt="Test 2 Results">
+          <div class="caption">Large mesh: 13.1 m² (141.6 ft²), α=0.5</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="sidebar">
+    <div class="stats-panel">
+      <h3>Test 1 Results</h3>
+      <div class="stat-row"><span class="label">Room Area</span><span class="value">1.38 m² (14.9 ft²)</span></div>
+      <div class="stat-row"><span class="label">Boundary Points</span><span class="value">19</span></div>
+      <div class="stat-row"><span class="label">Alpha Parameter</span><span class="value">0.5</span></div>
+      <div class="stat-row"><span class="label">Floor Points</span><span class="value">2,408</span></div>
+      <div class="stat-row"><span class="label">Height Range</span><span class="value">0.0-0.3 m</span></div>
+      <div class="stat-row"><span class="label">Openings</span><span class="value">0</span></div>
+    </div>
+
+    <div class="stats-panel">
+      <h3>Test 2 Results</h3>
+      <div class="stat-row"><span class="label">Room Area</span><span class="value">13.1 m² (141.6 ft²)</span></div>
+      <div class="stat-row"><span class="label">Boundary Points</span><span class="value">22</span></div>
+      <div class="stat-row"><span class="label">Alpha Parameter</span><span class="value">0.5</span></div>
+      <div class="stat-row"><span class="label">Floor Points</span><span class="value">22,811</span></div>
+      <div class="stat-row"><span class="label">Height Range</span><span class="value">0.0-0.3 m</span></div>
+      <div class="stat-row"><span class="label">Openings</span><span class="value">0</span></div>
+    </div>
+
+    <div class="stats-panel">
+      <h3>Algorithm Details</h3>
+      <div class="stat-row"><span class="label">Shape Type</span><span class="value">Alpha Shapes</span></div>
+      <div class="stat-row"><span class="label">Floor Detection</span><span class="value">Normal + Height</span></div>
+      <div class="stat-row"><span class="label">Clustering</span><span class="value">DBSCAN</span></div>
+      <div class="stat-row"><span class="label">Simplification</span><span class="value">Douglas-Peucker</span></div>
+      <div class="stat-row"><span class="label">Tolerance</span><span class="value">0.02 m</span></div>
+    </div>
+
+    <div class="json-panel">
+      <h3>Raw JSON Data</h3>
+      <div class="json-content" id="jsonData">Loading...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Load and display JSON data
+fetch('../results/v13_tests/test1_results.json')
+  .then(response => response.json())
+  .then(data1 => {
+    return fetch('../results/v13_tests/test2_results.json')
+      .then(response => response.json())
+      .then(data2 => {
+        const combined = {
+          test1: data1,
+          test2: data2
+        };
+        document.getElementById('jsonData').textContent = JSON.stringify(combined, null, 2);
+      });
+  })
+  .catch(error => {
+    document.getElementById('jsonData').textContent = 'Error loading JSON data: ' + error.message;
+  });
+</script>
+
+</body>
+</html>

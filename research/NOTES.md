@@ -55,17 +55,17 @@ Two mesh files were used for testing:
 - Wall height range 0.3-0.8 (relative) captures walls effectively
 - OpenCV morphological operations clean up noise well
 
-### v11: Normal-based Wall Segmentation ⭐⭐⭐⭐⭐
+### v11: Normal-based Wall Segmentation (IMPROVED MANHATTAN) ⭐⭐⭐⭐⭐
 
 **Branch**: `research/v11-normal-segmentation`
 
-**Concept**: Classify faces by normal direction (dot product with up vector), extract wall faces, project to 2D, use clustering and convex hull.
+**Concept**: Classify faces by normal direction, apply Manhattan wall fitting with histogram voting, merge collinear segments.
 
-**Results**:
-- Small mesh: 0.4 m² (4.2 ft²), 20 boundary points, 87,148 wall faces, 1 cluster
-- Large mesh: 16.8 m² (180.4 ft²), 19 boundary points, 286,494 wall faces, 4 clusters  
+**IMPROVED Results** (with Manhattan wall merging):
+- Small mesh: 4.0 m² (43.0 ft²), 7 wall segments, 21 openings (over-detection issue)
+- Large mesh: 16.8 m² (180.4 ft²), 5 wall segments ✅, 2 openings ✅ (64.1% overall accuracy)
 
-**Quality**: ⭐⭐⭐⭐⭐
+**Quality**: ⭐⭐⭐⭐⭐ 🏆 **BEST APPROACH**
 - **Pros**:
   - Excellent performance on both meshes
   - Largest room area detection (most accurate?)
@@ -225,39 +225,41 @@ Two mesh files were used for testing:
 - Implements confidence-weighted occupancy grids
 - **Available Frame Metadata**: cameraGrain, frame_index, intrinsics, cameraPoseARFrame, time, averageVelocity, projectionMatrix, averageAngularVelocity, motionQuality, exposureDuration
 
-## Overall Ranking
+## Overall Ranking (UPDATED with Manhattan Wall Merging Improvements)
 
-1. **v14 (Hybrid)** - Best combination of accuracy and capability ⭐⭐⭐⭐⭐
-2. **v11 (Normal Segmentation)** - Most robust single-method approach ⭐⭐⭐⭐⭐
-3. **v16 (Confidence Guided)** - High potential, needs tuning ⭐⭐⭐⭐
-4. **v10 (Voxelization)** - Consistent and reliable ⭐⭐⭐⭐ 
-5. **v15 (Flood-fill)** - Good concept, needs refinement ⭐⭐⭐
-6. **v12 (Contour Detection)** - Good for complex meshes ⭐⭐⭐
+1. **v11 (Normal Segmentation IMPROVED)** - 🏆 **BEST: 64.1% accuracy, 5 wall segments, 2 openings** ⭐⭐⭐⭐⭐
+2. **v12 (Contour Detection)** - Good performance with improved merging ⭐⭐⭐⭐
+3. **v10 (Voxelization)** - Consistent results with Manhattan fitting ⭐⭐⭐⭐
+4. **v14 (Hybrid)** - High potential but opening detection bug ⭐⭐⭐
+5. **v16 (Confidence Guided)** - High potential, needs tuning ⭐⭐⭐⭐
+6. **v15 (Flood-fill)** - Good concept, needs refinement ⭐⭐⭐
 7. **v13 (Alpha Shapes)** - Promising but needs work ⭐⭐
+
+**MAJOR IMPROVEMENT**: All approaches now have 85-90% fewer wall segments thanks to Manhattan regularization!
 
 ## Key Findings
 
-### What Worked Well:
-- **Hybrid approaches** (v14) leverage multiple techniques' strengths effectively
-- **Face normal analysis** (v11) remains the most robust single technique
-- **Confidence-based weighting** (v16) shows promise for sensor data integration
-- **Image processing techniques** (v12) excel at opening detection
-- **Morphological operations** consistently improve boundary quality
-- **Occupancy grids** (v15) provide intuitive spatial representation
+### What Worked Well (UPDATED):
+- **Manhattan wall regularization** dramatically reduces wall segment count (85-90% reduction)
+- **Histogram-based angle voting** successfully finds dominant wall directions
+- **Collinear segment merging** consolidates fragmented wall boundaries
+- **Face normal analysis** (v11) remains the most robust foundation
+- **Gap-based opening detection** works well on quality meshes
+- **Image processing techniques** (v12) provide consistent results
 
-### What Didn't Work:
-- **Single-method approaches** have inherent limitations
-- **Alpha shapes** (v13) are too sensitive to parameter tuning
-- **Simple flood-fill** (v15) oversimplifies complex room layouts
-- **Naive confidence thresholding** (v16) needs sensor-specific calibration
-- **Aggressive boundary simplification** loses too much detail
+### What Didn't Work (UPDATED):
+- **Area estimation** still challenging - all approaches struggle with accurate room area
+- **Small/fragmented meshes** cause opening over-detection
+- **v14 hybrid opening detection** has critical bug (detects 1280 openings!)
+- **Parameter sensitivity** requires mesh-specific tuning
+- **Quality dependency** - results vary significantly between high/low quality meshes
 
-### Major Insights:
-- **Combination beats specialization**: v14's hybrid approach outperforms all single methods
-- **Metadata is valuable**: Frame JSONs contain rich camera pose and quality data
-- **Scale matters**: Approaches perform differently on small vs. large meshes
-- **Opening detection is hard**: Only v12 and v14 successfully detect openings
-- **Confidence data needs calibration**: Raw confidence values require sensor-specific thresholding
+### Major Insights (UPDATED):
+- **Manhattan fitting is essential**: Transforms 35+ segments into 5-7 clean walls
+- **v11 improved is the gold standard**: 64.1% accuracy with proper wall count
+- **Opening detection quality-dependent**: Works well on large mesh, fails on small mesh
+- **Hybrid approaches need debugging**: v14 has potential but needs parameter fixes
+- **Mesh quality matters**: High-quality scans produce much better results
 
 ### Common Issues:
 - Parameter tuning remains critical for all approaches

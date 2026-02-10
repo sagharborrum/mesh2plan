@@ -32,6 +32,19 @@ import matplotlib.pyplot as plt
 
 warnings.filterwarnings("ignore")
 
+def determine_coordinate_system(mesh):
+    """Determine coordinate system from mesh geometry"""
+    verts = mesh.vertices
+    normals = mesh.face_normals
+    up_candidates = {
+        'X': np.abs(normals[:,0]).mean(),
+        'Y': np.abs(normals[:,1]).mean(),
+        'Z': np.abs(normals[:,2]).mean()
+    }
+    up_axis = max(up_candidates, key=up_candidates.get)
+    projection = 'XY' if up_axis == 'Z' else ('XZ' if up_axis == 'Y' else 'YZ')
+    return {'up_axis': up_axis, 'projection': projection}
+
 class NpEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, (np.integer,)): return int(obj)

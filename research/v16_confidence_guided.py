@@ -1,19 +1,23 @@
 #!/usr/bin/env python3
 """
-v16: Confidence-Map Guided Extraction
-=====================================
+v16: Confidence-Map Guided Extraction (FIXED)
+=============================================
 
-Approach:
-1. Load confidence maps from LiDAR data: data/*/conf_*.png
-2. Load frame poses from JSON files: data/*/frame_*.json
-3. Use confidence maps to weight/filter mesh regions:
-   - High confidence = structural elements (walls/floors)
-   - Low confidence = reflective/transparent surfaces (windows/glass)
-4. Extract floor plans guided by confidence information
-5. Use camera poses for occlusion analysis and data quality assessment
+FIXES APPLIED:
+- Better confidence threshold tuning for narrow ranges (mean=1.9, range 0-2)
+- Use confidence to weight vertices, then apply v11-style analysis
+- Proper floor level detection and wall height filtering
+- Apply confidence-weighted vertex analysis with alpha shapes
+- Combine confidence information with proven geometric analysis
+- Handle sensor-specific calibration for confidence values
 
-This approach leverages the rich metadata available in newer scan datasets.
-Only works with datasets that have confidence maps and frame metadata.
+This approach:
+1. Load confidence maps and frame metadata
+2. Use confidence to weight mesh vertices by reliability
+3. Apply floor level detection like other fixed approaches  
+4. Extract wall foot-points weighted by confidence
+5. Use alpha shape boundary extraction with confidence weighting
+6. Detect openings using confidence-based transparency analysis
 """
 
 import numpy as np
@@ -23,10 +27,12 @@ import json
 import warnings
 import cv2
 import matplotlib.pyplot as plt
-from scipy.spatial import ConvexHull
+from scipy.spatial import ConvexHull, Delaunay
 from sklearn.cluster import DBSCAN
+from collections import defaultdict
 import glob
 from PIL import Image
+import math
 
 warnings.filterwarnings("ignore")
 
@@ -38,8 +44,32 @@ class NpEncoder(json.JSONEncoder):
         if isinstance(obj, (np.bool_,)): return bool(obj)
         return super().default(obj)
 
+def find_floor_level(mesh):
+    """Find floor level using Z-coordinate histogram"""
+    print("Finding floor level...")
+    
+    z_coords = mesh.vertices[:, 2]
+    z_min, z_max = z_coords.min(), z_coords.max()
+    
+    # Create histogram
+    bins = 50
+    hist, bin_edges = np.histogram(z_coords, bins=bins)
+    
+    # Floor is typically the lowest significant peak
+    bottom_30_idx = int(0.3 * bins)
+    bottom_hist = hist[:bottom_30_idx]
+    
+    if len(bottom_hist) > 0:
+        floor_bin_idx = np.argmax(bottom_hist)
+        floor_level = bin_edges[floor_bin_idx]
+    else:
+        floor_level = z_min
+    
+    print(f"Floor level detected at Z = {floor_level:.2f}m")
+    return floor_level
+
 def analyze_frame_metadata(data_dir):
-    """Analyze frame JSON files to understand camera poses and quality"""
+    """Analyze frame JSON files for camera poses and quality - ENHANCED"""
     print("Step 1: Analyzing frame metadata...")
     
     frame_files = glob.glob(str(Path(data_dir) / "frame_*.json"))
@@ -50,7 +80,7 @@ def analyze_frame_metadata(data_dir):
     
     frame_data = []
     
-    for frame_file in sorted(frame_files)[:20]:  # Limit to first 20 for analysis
+    for frame_file in sorted(frame_files)[:20]:  # Analyze first 20 frames
         try:
             with open(frame_file, 'r') as f:
                 data = json.load(f)
@@ -62,53 +92,46 @@ def analyze_frame_metadata(data_dir):
         print("  No valid frame data loaded!")
         return None
     
-    # Extract useful information
+    # Enhanced analysis with all available fields
     frame_analysis = {
         'total_frames_analyzed': len(frame_data),
-        'available_fields': list(frame_data[0].keys()) if frame_data else [],
-        'motion_quality_stats': {},
-        'velocity_stats': {},
-        'camera_info': {}
+        'total_frames_available': len(frame_files),
+        'available_fields': list(frame_data[0].keys()) if frame_data else []
     }
     
-    # Analyze motion quality if available
-    motion_qualities = [f.get('motionQuality', 0) for f in frame_data if 'motionQuality' in f]
-    if motion_qualities:
-        frame_analysis['motion_quality_stats'] = {
-            'mean': np.mean(motion_qualities),
-            'std': np.std(motion_qualities),
-            'min': np.min(motion_qualities),
-            'max': np.max(motion_qualities)
-        }
+    # Analyze all numerical fields
+    numerical_fields = ['motionQuality', 'averageVelocity', 'averageAngularVelocity', 
+                       'exposureDuration', 'cameraGrain', 'frame_index', 'time']
     
-    # Analyze velocities if available
-    avg_velocities = [f.get('averageVelocity', 0) for f in frame_data if 'averageVelocity' in f]
-    if avg_velocities:
-        frame_analysis['velocity_stats'] = {
-            'mean': np.mean(avg_velocities),
-            'std': np.std(avg_velocities),
-            'min': np.min(avg_velocities),
-            'max': np.max(avg_velocities)
-        }
+    for field in numerical_fields:
+        values = [f.get(field, 0) for f in frame_data if field in f and f[field] is not None]
+        if values:
+            frame_analysis[f'{field}_stats'] = {
+                'mean': float(np.mean(values)),
+                'std': float(np.std(values)),
+                'min': float(np.min(values)),
+                'max': float(np.max(values)),
+                'count': len(values)
+            }
     
-    # Extract camera intrinsics if available
+    # Camera intrinsics analysis
     if 'intrinsics' in frame_data[0]:
-        frame_analysis['camera_info'] = {
-            'intrinsics': frame_data[0]['intrinsics'],
-            'has_projection_matrix': 'projectionMatrix' in frame_data[0]
-        }
+        frame_analysis['camera_intrinsics'] = frame_data[0]['intrinsics']
+        frame_analysis['has_projection_matrix'] = 'projectionMatrix' in frame_data[0]
     
-    print(f"  Analyzed {len(frame_data)} frames")
+    print(f"  Analyzed {len(frame_data)} frames (of {len(frame_files)} available)")
     print(f"  Available fields: {', '.join(frame_analysis['available_fields'])}")
     
-    if motion_qualities:
-        print(f"  Motion quality: {frame_analysis['motion_quality_stats']['mean']:.3f} ± {frame_analysis['motion_quality_stats']['std']:.3f}")
+    # Print key statistics
+    if 'motionQuality_stats' in frame_analysis:
+        stats = frame_analysis['motionQuality_stats']
+        print(f"  Motion quality: {stats['mean']:.3f} ± {stats['std']:.3f} (range: {stats['min']:.3f}-{stats['max']:.3f})")
     
     return frame_analysis
 
-def load_confidence_maps(data_dir, max_maps=10):
-    """Load and analyze confidence maps from PNG files"""
-    print("Step 2: Loading confidence maps...")
+def load_and_analyze_confidence_maps(data_dir, max_maps=10):
+    """Load confidence maps with enhanced analysis - BETTER THRESHOLDING"""
+    print("Step 2: Loading and analyzing confidence maps...")
     
     conf_files = glob.glob(str(Path(data_dir) / "conf_*.png"))
     
@@ -116,26 +139,15 @@ def load_confidence_maps(data_dir, max_maps=10):
         print("  No confidence map files found!")
         return None, None
     
-    print(f"  Found {len(conf_files)} confidence maps, loading first {max_maps}...")
+    print(f"  Found {len(conf_files)} confidence maps, loading {min(max_maps, len(conf_files))}...")
     
     confidence_maps = []
-    confidence_stats = {
-        'file_count': len(conf_files),
-        'loaded_count': 0,
-        'resolution': None,
-        'confidence_distribution': {}
-    }
     
     for i, conf_file in enumerate(sorted(conf_files)[:max_maps]):
         try:
-            # Load confidence map as grayscale
-            conf_map = np.array(Image.open(conf_file).convert('L'))
+            # Load as raw values (no conversion)
+            conf_map = np.array(Image.open(conf_file))
             confidence_maps.append(conf_map)
-            
-            if confidence_stats['resolution'] is None:
-                confidence_stats['resolution'] = conf_map.shape
-                
-            confidence_stats['loaded_count'] += 1
             
         except Exception as e:
             print(f"  Error loading {conf_file}: {e}")
@@ -144,354 +156,575 @@ def load_confidence_maps(data_dir, max_maps=10):
         print("  No confidence maps loaded successfully!")
         return None, None
     
-    # Analyze confidence distribution
+    # Enhanced confidence analysis
     all_confidences = np.concatenate([cm.flatten() for cm in confidence_maps])
-    confidence_stats['confidence_distribution'] = {
+    
+    confidence_stats = {
+        'file_count': len(conf_files),
+        'loaded_count': len(confidence_maps),
+        'resolution': confidence_maps[0].shape,
+        'value_range': [float(np.min(all_confidences)), float(np.max(all_confidences))],
         'mean': float(np.mean(all_confidences)),
         'std': float(np.std(all_confidences)),
         'percentiles': {
+            '10th': float(np.percentile(all_confidences, 10)),
             '25th': float(np.percentile(all_confidences, 25)),
             '50th': float(np.percentile(all_confidences, 50)),
             '75th': float(np.percentile(all_confidences, 75)),
-            '90th': float(np.percentile(all_confidences, 90))
+            '90th': float(np.percentile(all_confidences, 90)),
+            '95th': float(np.percentile(all_confidences, 95))
         }
     }
     
     print(f"  Loaded {len(confidence_maps)} confidence maps")
     print(f"  Resolution: {confidence_stats['resolution']}")
-    print(f"  Confidence range: {np.min(all_confidences)} - {np.max(all_confidences)}")
-    print(f"  Mean confidence: {confidence_stats['confidence_distribution']['mean']:.1f}")
+    print(f"  Value range: {confidence_stats['value_range'][0]:.1f} - {confidence_stats['value_range'][1]:.1f}")
+    print(f"  Mean: {confidence_stats['mean']:.2f} ± {confidence_stats['std']:.2f}")
+    
+    # Auto-tune thresholds for narrow ranges
+    value_span = confidence_stats['value_range'][1] - confidence_stats['value_range'][0]
+    if value_span < 50:  # Narrow range (like 0-2)
+        print(f"  Detected narrow confidence range ({value_span:.1f}), using percentile-based thresholds")
+        confidence_stats['auto_thresholds'] = {
+            'high_confidence': confidence_stats['percentiles']['75th'],
+            'medium_confidence': confidence_stats['percentiles']['50th'], 
+            'low_confidence': confidence_stats['percentiles']['25th']
+        }
+    else:  # Wide range
+        confidence_stats['auto_thresholds'] = {
+            'high_confidence': confidence_stats['mean'] + 0.5 * confidence_stats['std'],
+            'medium_confidence': confidence_stats['mean'],
+            'low_confidence': confidence_stats['mean'] - 0.5 * confidence_stats['std']
+        }
+    
+    print(f"  Auto-tuned thresholds: High={confidence_stats['auto_thresholds']['high_confidence']:.2f}, " +
+          f"Medium={confidence_stats['auto_thresholds']['medium_confidence']:.2f}, " +
+          f"Low={confidence_stats['auto_thresholds']['low_confidence']:.2f}")
     
     return confidence_maps, confidence_stats
 
-def create_confidence_weighted_occupancy(mesh, confidence_maps, confidence_stats, resolution=256):
-    """Create occupancy grid weighted by confidence information"""
-    print("Step 3: Creating confidence-weighted occupancy grid...")
+def weight_vertices_by_confidence(mesh, confidence_maps, confidence_stats, floor_level):
+    """Weight mesh vertices by confidence and extract wall foot-points - KEY FIX"""
+    print("Step 3: Weighting vertices by confidence...")
     
-    # Get mesh bounds
-    bounds = mesh.bounds
-    x_min, y_min, z_min = bounds[0]
-    x_max, y_max, z_max = bounds[1]
+    if not confidence_maps or not confidence_stats:
+        print("  No confidence data available, using uniform weights")
+        # Apply standard wall foot-point extraction
+        vertices = mesh.vertices
+        z_coords = vertices[:, 2]
+        foot_mask = np.abs(z_coords - floor_level) <= 0.3
+        wall_footpoints = vertices[foot_mask]
+        vertex_weights = np.ones(len(wall_footpoints))
+        
+        return wall_footpoints, vertex_weights
     
-    # Add padding
-    padding = 0.1
-    x_range = x_max - x_min
-    z_range = z_max - z_min
-    x_min -= x_range * padding
-    x_max += x_range * padding
-    z_min -= z_range * padding
-    z_max += z_range * padding
-    
-    # Create base occupancy grid
-    occupancy_grid = np.zeros((resolution, resolution))
-    confidence_grid = np.zeros((resolution, resolution))
-    
-    # Project mesh vertices
+    # Get vertices in wall foot-point range
     vertices = mesh.vertices
-    x_pixels = ((vertices[:, 0] - x_min) / (x_max - x_min) * (resolution - 1)).astype(int)
-    z_pixels = ((vertices[:, 2] - z_min) / (z_max - z_min) * (resolution - 1)).astype(int)
+    z_coords = vertices[:, 2]
+    foot_mask = np.abs(z_coords - floor_level) <= 0.3
+    wall_footpoints = vertices[foot_mask]
     
-    # Filter valid pixels
-    valid_mask = ((x_pixels >= 0) & (x_pixels < resolution) & 
-                  (z_pixels >= 0) & (z_pixels < resolution))
+    print(f"  Wall foot-points before confidence filtering: {len(wall_footpoints):,}")
     
-    valid_x = x_pixels[valid_mask]
-    valid_z = z_pixels[valid_mask]
-    valid_y = vertices[valid_mask, 1]
-    
-    # Fill occupancy grid
-    print(f"  Projecting {len(valid_x)} vertices to occupancy grid...")
-    for x, z, y in zip(valid_x, valid_z, valid_y):
-        occupancy_grid[z, x] = max(occupancy_grid[z, x], y - y_min)
+    if len(wall_footpoints) == 0:
+        print("  No wall foot-points found!")
+        return np.array([]), np.array([])
     
     # Create aggregate confidence map
-    if confidence_maps:
-        print("  Processing confidence information...")
-        # Average all confidence maps
-        avg_confidence = np.mean(confidence_maps, axis=0)
-        
-        # Resize to match occupancy grid
-        avg_confidence_resized = cv2.resize(avg_confidence, (resolution, resolution))
-        confidence_grid = avg_confidence_resized
-        
-        # Apply confidence thresholding
-        high_conf_threshold = confidence_stats['confidence_distribution']['percentiles']['75th']
-        low_conf_threshold = confidence_stats['confidence_distribution']['percentiles']['25th']
-        
-        # Create masks
-        high_confidence_mask = confidence_grid > high_conf_threshold
-        low_confidence_mask = confidence_grid < low_conf_threshold
-        
-        print(f"  High confidence regions: {np.sum(high_confidence_mask)} pixels")
-        print(f"  Low confidence regions: {np.sum(low_confidence_mask)} pixels")
-        
-        # Weight occupancy by confidence
-        # High confidence areas are more likely to be structural
-        confidence_weighted_occupancy = occupancy_grid.copy()
-        confidence_weighted_occupancy[high_confidence_mask] *= 1.5  # Boost structural elements
-        confidence_weighted_occupancy[low_confidence_mask] *= 0.5   # Reduce transparent elements
-    else:
-        confidence_grid = np.ones_like(occupancy_grid)
-        confidence_weighted_occupancy = occupancy_grid
-        high_confidence_mask = np.ones_like(occupancy_grid, dtype=bool)
-        low_confidence_mask = np.zeros_like(occupancy_grid, dtype=bool)
+    avg_confidence = np.mean(confidence_maps, axis=0)
+    conf_height, conf_width = avg_confidence.shape
     
-    return (confidence_weighted_occupancy, confidence_grid, 
-            high_confidence_mask, low_confidence_mask, (x_min, x_max, z_min, z_max))
+    # Map 3D wall foot-points to confidence map coordinates
+    x_coords = wall_footpoints[:, 0]
+    y_coords = wall_footpoints[:, 1]
+    
+    # Estimate bounds from mesh
+    x_min, x_max = x_coords.min(), x_coords.max()
+    y_min, y_max = y_coords.min(), y_coords.max()
+    
+    # Add padding for safety
+    padding = 0.1
+    x_range = x_max - x_min
+    y_range = y_max - y_min
+    x_min -= x_range * padding
+    x_max += x_range * padding
+    y_min -= y_range * padding
+    y_max += y_range * padding
+    
+    # Map to confidence image coordinates
+    conf_x = ((x_coords - x_min) / (x_max - x_min) * (conf_width - 1)).astype(int)
+    conf_y = ((y_coords - y_min) / (y_max - y_min) * (conf_height - 1)).astype(int)
+    
+    # Clamp to valid ranges
+    conf_x = np.clip(conf_x, 0, conf_width - 1)
+    conf_y = np.clip(conf_y, 0, conf_height - 1)
+    
+    # Extract confidence values for each vertex
+    vertex_confidences = avg_confidence[conf_y, conf_x]
+    
+    # Convert to weights using auto-tuned thresholds
+    thresholds = confidence_stats['auto_thresholds']
+    vertex_weights = np.ones(len(vertex_confidences))
+    
+    # Apply confidence-based weighting
+    high_conf_mask = vertex_confidences >= thresholds['high_confidence']
+    low_conf_mask = vertex_confidences <= thresholds['low_confidence']
+    
+    vertex_weights[high_conf_mask] = 2.0  # Boost high-confidence vertices
+    vertex_weights[low_conf_mask] = 0.3   # Reduce low-confidence vertices
+    
+    # Filter out very low confidence vertices
+    min_weight_threshold = 0.2
+    keep_mask = vertex_weights >= min_weight_threshold
+    
+    filtered_footpoints = wall_footpoints[keep_mask]
+    filtered_weights = vertex_weights[keep_mask]
+    
+    print(f"  Confidence filtering: {len(wall_footpoints):,} -> {len(filtered_footpoints):,} vertices")
+    print(f"  High confidence vertices: {np.sum(high_conf_mask):,}")
+    print(f"  Low confidence vertices: {np.sum(low_conf_mask):,}")
+    print(f"  Weight range: {np.min(filtered_weights):.2f} - {np.max(filtered_weights):.2f}")
+    
+    return filtered_footpoints, filtered_weights
 
-def extract_structural_elements(confidence_weighted_occupancy, high_confidence_mask, 
-                               wall_height_threshold=0.5):
-    """Extract walls and structural elements using confidence weighting"""
-    print("Step 4: Extracting structural elements...")
+def confidence_weighted_alpha_shape(points, weights, alpha=0.5):
+    """Create alpha shape with confidence weighting - V11 STYLE WITH CONFIDENCE"""
+    print(f"Step 4: Confidence-weighted alpha shape (alpha={alpha})...")
     
-    # Create wall mask based on height and confidence
-    wall_mask = ((confidence_weighted_occupancy > wall_height_threshold) & 
-                 high_confidence_mask)
+    if len(points) < 3:
+        return points
     
-    # Apply morphological operations to clean up walls
-    kernel = np.ones((3, 3), np.uint8)
-    wall_mask = cv2.morphologyEx(wall_mask.astype(np.uint8), cv2.MORPH_CLOSE, kernel, iterations=3)
-    wall_mask = cv2.morphologyEx(wall_mask, cv2.MORPH_OPEN, kernel, iterations=2)
+    # Project to XY plane
+    points_2d = points[:, [0, 1]]
     
-    # Find wall contours
-    contours, _ = cv2.findContours(wall_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
-    wall_regions = []
-    for contour in contours:
-        area = cv2.contourArea(contour)
-        if area > 100:  # Minimum wall area
-            wall_regions.append(contour)
-    
-    print(f"  Found {len(wall_regions)} structural wall regions")
-    
-    return wall_regions, wall_mask
+    try:
+        # Use confidence weighting by duplicating high-confidence points
+        weighted_points = []
+        for i, point in enumerate(points_2d):
+            weight = weights[i]
+            # Duplicate points based on weight (more weight = more influence)
+            num_copies = max(1, int(weight * 3))
+            for _ in range(num_copies):
+                # Add slight noise to avoid exact duplicates
+                noise = np.random.normal(0, 0.01, 2)  # 1cm noise
+                weighted_points.append(point + noise)
+        
+        weighted_points = np.array(weighted_points)
+        
+        # Delaunay triangulation on weighted points
+        tri = Delaunay(weighted_points)
+        triangles = tri.simplices
+        
+        # Compute circumradius for each triangle
+        def circumradius(triangle_points):
+            a, b, c = triangle_points
+            side_a = np.linalg.norm(b - c)
+            side_b = np.linalg.norm(a - c)  
+            side_c = np.linalg.norm(a - b)
+            
+            area = 0.5 * abs(np.cross(b - a, c - a))
+            
+            if area < 1e-10:
+                return float('inf')
+            
+            return (side_a * side_b * side_c) / (4 * area)
+        
+        # Filter triangles by alpha criterion
+        valid_triangles = []
+        for triangle in triangles:
+            triangle_points = weighted_points[triangle]
+            circumr = circumradius(triangle_points)
+            
+            if circumr <= 1.0 / alpha:
+                valid_triangles.append(triangle)
+        
+        if not valid_triangles:
+            # Fallback to convex hull
+            hull = ConvexHull(points_2d)
+            return points_2d[hull.vertices]
+        
+        # Extract boundary edges
+        edge_count = defaultdict(int)
+        for triangle in valid_triangles:
+            for i in range(3):
+                edge = tuple(sorted([triangle[i], triangle[(i + 1) % 3]]))
+                edge_count[edge] += 1
+        
+        # Boundary edges appear only once
+        boundary_edges = [edge for edge, count in edge_count.items() if count == 1]
+        
+        # Convert edges to boundary polygon using original points
+        adjacency = defaultdict(list)
+        for edge in boundary_edges:
+            adjacency[edge[0]].append(edge[1])
+            adjacency[edge[1]].append(edge[0])
+        
+        # Find longest connected component
+        visited = set()
+        longest_path = []
+        
+        for start_node in adjacency.keys():
+            if start_node in visited:
+                continue
+            
+            current_path = [start_node]
+            current = start_node
+            visited.add(current)
+            
+            while True:
+                next_nodes = [n for n in adjacency[current] if n not in visited]
+                if not next_nodes:
+                    break
+                
+                next_node = next_nodes[0]
+                current_path.append(next_node)
+                visited.add(next_node)
+                current = next_node
+            
+            if len(current_path) > len(longest_path):
+                longest_path = current_path
+        
+        # Map back to original points by finding nearest
+        boundary_points = []
+        for wp_idx in longest_path:
+            wp = weighted_points[wp_idx]
+            # Find closest original point
+            distances = np.linalg.norm(points_2d - wp, axis=1)
+            closest_idx = np.argmin(distances)
+            boundary_points.append(points_2d[closest_idx])
+        
+        boundary_points = np.array(boundary_points)
+        
+        # Remove duplicates
+        unique_boundary = []
+        for point in boundary_points:
+            is_duplicate = False
+            for existing in unique_boundary:
+                if np.linalg.norm(point - existing) < 0.1:
+                    is_duplicate = True
+                    break
+            if not is_duplicate:
+                unique_boundary.append(point)
+        
+        boundary_points = np.array(unique_boundary) if unique_boundary else boundary_points
+        
+        print(f"  Confidence-weighted alpha shape: {len(boundary_points)} boundary points")
+        return boundary_points
+        
+    except Exception as e:
+        print(f"  Error in confidence-weighted alpha shape: {e}")
+        # Fallback to convex hull
+        hull = ConvexHull(points_2d)
+        return points_2d[hull.vertices]
 
-def detect_transparent_openings(confidence_grid, low_confidence_mask, wall_mask):
-    """Detect openings using low-confidence regions"""
-    print("Step 5: Detecting transparent openings...")
+def detect_transparency_openings(confidence_maps, confidence_stats, boundary_points):
+    """Detect openings using confidence-based transparency detection"""
+    print("Step 5: Detecting transparency-based openings...")
     
-    # Find regions that should be walls but have low confidence
-    # These are likely windows or glass doors
-    potential_openings = (wall_mask.astype(bool) & low_confidence_mask)
-    
-    # Find contours of potential openings
-    opening_contours, _ = cv2.findContours(potential_openings.astype(np.uint8), 
-                                         cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not confidence_maps or len(boundary_points) < 3:
+        return []
     
     openings = []
-    for contour in opening_contours:
-        area = cv2.contourArea(contour)
-        if area > 20:  # Minimum opening size
-            openings.append(contour)
     
-    print(f"  Detected {len(openings)} potential transparent openings")
+    # Use low-confidence regions to infer transparent openings (windows/glass doors)
+    avg_confidence = np.mean(confidence_maps, axis=0)
+    thresholds = confidence_stats['auto_thresholds']
     
+    # Find very low confidence regions
+    transparent_mask = avg_confidence < thresholds['low_confidence']
+    
+    # Find contours in transparent regions
+    contours, _ = cv2.findContours(transparent_mask.astype(np.uint8), 
+                                  cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    # Convert contours to world coordinates (approximate)
+    conf_height, conf_width = avg_confidence.shape
+    
+    # Estimate bounds from boundary points
+    boundary_array = np.array(boundary_points)
+    x_min, x_max = boundary_array[:, 0].min(), boundary_array[:, 0].max()
+    y_min, y_max = boundary_array[:, 1].min(), boundary_array[:, 1].max()
+    
+    for contour in contours:
+        area_pixels = cv2.contourArea(contour)
+        if area_pixels > 50:  # Minimum opening size
+            
+            # Find centroid
+            M = cv2.moments(contour)
+            if M["m00"] != 0:
+                cx = int(M["m10"] / M["m00"])
+                cy = int(M["m01"] / M["m00"])
+                
+                # Convert to world coordinates (approximate)
+                world_x = x_min + (cx / conf_width) * (x_max - x_min)
+                world_y = y_min + (cy / conf_height) * (y_max - y_min)
+                
+                # Estimate size
+                opening_area_m2 = area_pixels * ((x_max - x_min) * (y_max - y_min)) / (conf_width * conf_height)
+                
+                opening_type = "window" if opening_area_m2 < 3.0 else "glass_wall"
+                
+                openings.append({
+                    'type': opening_type,
+                    'position': [world_x, world_y],
+                    'area_m2': opening_area_m2,
+                    'detection_method': 'confidence_transparency',
+                    'confidence_based': True
+                })
+    
+    print(f"  Found {len(openings)} transparency-based openings")
     return openings
 
-def convert_to_world_coordinates(regions, grid_bounds, resolution):
-    """Convert grid coordinates to world coordinates"""
-    print("Step 6: Converting to world coordinates...")
-    
-    x_min, x_max, z_min, z_max = grid_bounds
-    world_regions = []
-    
-    for region in regions:
-        world_points = []
-        for point in region.squeeze():
-            col, row = point  # OpenCV uses (x,y) = (col,row)
-            
-            # Convert to world coordinates
-            world_x = x_min + (col / resolution) * (x_max - x_min)
-            world_z = z_min + (row / resolution) * (z_max - z_min)
-            world_points.append([world_x, world_z])
-        
-        world_regions.append(np.array(world_points))
-    
-    return world_regions
-
-def calculate_area(points):
-    """Calculate area using shoelace formula"""
-    if len(points) < 3:
-        return 0.0
-    
-    x = points[:, 0]
-    y = points[:, 1]
-    return 0.5 * abs(sum(x[i] * y[i+1] - x[i+1] * y[i] 
-                        for i in range(-1, len(x)-1)))
-
-def create_visualization(mesh, confidence_weighted_occupancy, confidence_grid,
-                        wall_mask, high_confidence_mask, low_confidence_mask,
-                        wall_regions_world, openings_world, output_path):
-    """Create comprehensive visualization"""
-    print("Creating visualization...")
-    
-    fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2, figsize=(16, 20))
-    
-    # 1. Original mesh
-    vertices_2d = mesh.vertices[:, [0, 2]]
-    ax1.scatter(vertices_2d[:, 0], vertices_2d[:, 1], c='lightgray', s=0.1, alpha=0.5)
-    ax1.set_title('Original Mesh (Top View)')
-    ax1.set_aspect('equal')
-    ax1.grid(True, alpha=0.3)
-    
-    # 2. Confidence grid
-    ax2.imshow(confidence_grid, cmap='viridis', origin='lower')
-    ax2.set_title('Confidence Map (Aggregated)')
-    
-    # 3. High/Low confidence regions
-    combined_mask = np.zeros_like(confidence_grid)
-    combined_mask[high_confidence_mask] = 1  # High confidence = 1
-    combined_mask[low_confidence_mask] = -1  # Low confidence = -1
-    ax3.imshow(combined_mask, cmap='RdYlGn', origin='lower', vmin=-1, vmax=1)
-    ax3.set_title('Confidence Regions (Green=High, Red=Low)')
-    
-    # 4. Wall detection
-    ax4.imshow(wall_mask, cmap='gray', origin='lower')
-    ax4.set_title('Detected Walls (Confidence Weighted)')
-    
-    # 5. Confidence weighted occupancy
-    ax5.imshow(confidence_weighted_occupancy, cmap='plasma', origin='lower')
-    ax5.set_title('Confidence-Weighted Height Map')
-    
-    # 6. Final result with boundaries
-    ax6.scatter(vertices_2d[:, 0], vertices_2d[:, 1], c='lightgray', s=0.1, alpha=0.3)
-    
-    # Plot wall boundaries
-    for i, wall in enumerate(wall_regions_world):
-        if len(wall) > 2:
-            wall_closed = np.vstack([wall, wall[0]])
-            ax6.plot(wall_closed[:, 0], wall_closed[:, 1], 
-                    'r-', linewidth=2, label=f'Wall {i+1}' if i < 5 else '')
-    
-    # Plot openings
-    for i, opening in enumerate(openings_world):
-        if len(opening) > 2:
-            opening_closed = np.vstack([opening, opening[0]])
-            ax6.plot(opening_closed[:, 0], opening_closed[:, 1], 
-                    'b-', linewidth=2, label=f'Opening {i+1}' if i < 5 else '')
-    
-    ax6.set_title('Final Result: Walls (Red) & Openings (Blue)')
-    ax6.set_aspect('equal')
-    ax6.legend()
-    ax6.grid(True, alpha=0.3)
-    
-    plt.tight_layout()
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    plt.close()
-    print(f"Visualization saved to {output_path}")
-
-def process_mesh_confidence_guided(mesh_path, output_path, visualization_path=None):
-    """Main processing function for confidence-guided extraction"""
-    print(f"\nProcessing: {mesh_path}")
-    print("=" * 60)
+def analyze_mesh_confidence_guided(mesh_path):
+    """Main confidence-guided analysis with fixes applied"""
+    print(f"\n=== Confidence-guided Extraction v16 (FIXED): {mesh_path} ===")
     
     # Load mesh
-    try:
-        mesh = trimesh.load(mesh_path, force='mesh')
-        print(f"Loaded mesh: {len(mesh.vertices)} vertices, {len(mesh.faces)} faces")
-    except Exception as e:
-        print(f"Error loading mesh: {e}")
+    print("Loading mesh...")
+    mesh = trimesh.load(mesh_path)
+    if not hasattr(mesh, 'vertices'):
+        print("Error loading mesh")
         return None
     
-    # Get data directory (assume it's the parent directory of the mesh file)
+    print(f"Loaded mesh: {len(mesh.vertices):,} vertices, {len(mesh.faces):,} faces")
+    
+    # Get data directory
     mesh_path = Path(mesh_path)
     data_dir = mesh_path.parent
     
-    # Step 1: Analyze frame metadata
+    # Step 1: Find floor level (like other fixed approaches)
+    floor_level = find_floor_level(mesh)
+    
+    # Step 2: Analyze frame metadata
     frame_analysis = analyze_frame_metadata(data_dir)
     
-    # Step 2: Load confidence maps
-    confidence_maps, confidence_stats = load_confidence_maps(data_dir)
+    # Step 3: Load and analyze confidence maps with better thresholding
+    confidence_maps, confidence_stats = load_and_analyze_confidence_maps(data_dir)
     
-    if confidence_maps is None:
-        print("Warning: No confidence maps available. Using basic occupancy grid.")
-        confidence_maps = []
-        confidence_stats = {'confidence_distribution': {'percentiles': {'75th': 128, '25th': 64}}}
+    # Step 4: Weight vertices by confidence and extract wall footpoints
+    wall_footpoints, vertex_weights = weight_vertices_by_confidence(
+        mesh, confidence_maps, confidence_stats, floor_level)
     
-    # Step 3: Create confidence-weighted occupancy grid
-    (confidence_weighted_occupancy, confidence_grid, 
-     high_confidence_mask, low_confidence_mask, grid_bounds) = create_confidence_weighted_occupancy(
-        mesh, confidence_maps, confidence_stats)
+    if len(wall_footpoints) == 0:
+        print("No wall footpoints found!")
+        return None
     
-    # Step 4: Extract structural elements
-    wall_regions, wall_mask = extract_structural_elements(
-        confidence_weighted_occupancy, high_confidence_mask)
+    # Step 5: Create confidence-weighted alpha shape (v11-style with confidence)
+    boundary_points = confidence_weighted_alpha_shape(wall_footpoints, vertex_weights)
     
-    # Step 5: Detect transparent openings
-    openings = detect_transparent_openings(confidence_grid, low_confidence_mask, wall_mask)
+    # Step 6: Detect transparency-based openings
+    openings = detect_transparency_openings(confidence_maps, confidence_stats, boundary_points)
     
-    # Step 6: Convert to world coordinates
-    wall_regions_world = convert_to_world_coordinates(wall_regions, grid_bounds, 
-                                                     confidence_weighted_occupancy.shape[0])
-    openings_world = convert_to_world_coordinates(openings, grid_bounds,
-                                                 confidence_weighted_occupancy.shape[0])
+    # Calculate room area
+    if len(boundary_points) >= 3:
+        area = 0.0
+        n = len(boundary_points)
+        for i in range(n):
+            j = (i + 1) % n
+            area += boundary_points[i][0] * boundary_points[j][1]
+            area -= boundary_points[j][0] * boundary_points[i][1]
+        area = abs(area) / 2.0
+    else:
+        area = 0.0
     
-    # Calculate metrics
-    total_wall_area = sum(calculate_area(wall) for wall in wall_regions_world if len(wall) >= 3)
-    total_opening_area = sum(calculate_area(opening) for opening in openings_world if len(opening) >= 3)
-    
-    # Prepare results
-    results = {
-        'method': 'v16_confidence_guided',
-        'mesh_file': str(mesh_path),
-        'data_directory': str(data_dir),
-        'mesh_stats': {
-            'vertices': len(mesh.vertices),
-            'faces': len(mesh.faces)
+    return {
+        "method": "confidence_guided_v16_fixed",
+        "mesh_file": str(mesh_path),
+        "data_directory": str(data_dir),
+        "parameters": {
+            "floor_level": float(floor_level),
+            "has_confidence_data": confidence_maps is not None,
+            "confidence_maps_used": len(confidence_maps) if confidence_maps else 0,
+            "auto_thresholds": confidence_stats['auto_thresholds'] if confidence_stats else None
         },
-        'frame_analysis': frame_analysis,
-        'confidence_analysis': confidence_stats,
-        'structural_extraction': {
-            'wall_regions': len(wall_regions_world),
-            'total_wall_area_m2': total_wall_area,
-            'total_wall_area_ft2': total_wall_area * 10.764,
-            'openings_detected': len(openings_world),
-            'total_opening_area_m2': total_opening_area,
-            'total_opening_area_ft2': total_opening_area * 10.764
-        },
-        'results': {
-            'wall_boundaries': wall_regions_world,
-            'openings': openings_world,
-            'confidence_metadata': {
-                'has_confidence_maps': len(confidence_maps) > 0,
-                'confidence_maps_used': len(confidence_maps) if confidence_maps else 0
-            }
+        "room_boundary": boundary_points.tolist() if isinstance(boundary_points, np.ndarray) else boundary_points,
+        "openings": openings,
+        "room_area_sqm": float(area),
+        "room_area_sqft": float(area * 10.764),
+        "frame_analysis": frame_analysis,
+        "confidence_analysis": confidence_stats,
+        "analysis_stats": {
+            "wall_footpoints": len(wall_footpoints),
+            "boundary_vertices": len(boundary_points),
+            "confidence_weighted_vertices": len(wall_footpoints),
+            "transparency_openings": len(openings)
         }
     }
+
+def create_visualization(result, output_path):
+    """Create comprehensive confidence-guided visualization"""
+    if not result:
+        return
+        
+    print("Creating confidence-guided visualization...")
     
-    # Create visualization
-    if visualization_path:
-        create_visualization(mesh, confidence_weighted_occupancy, confidence_grid,
-                           wall_mask, high_confidence_mask, low_confidence_mask,
-                           wall_regions_world, openings_world, visualization_path)
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
     
-    # Print results summary
-    print(f"\nResults Summary:")
-    print(f"Frame metadata: {'Available' if frame_analysis else 'Not available'}")
-    print(f"Confidence maps: {len(confidence_maps) if confidence_maps else 0} loaded")
-    print(f"Wall regions: {len(wall_regions_world)}")
-    print(f"Total wall area: {total_wall_area:.1f} m² ({total_wall_area * 10.764:.1f} ft²)")
-    print(f"Openings detected: {len(openings_world)}")
-    print(f"Opening area: {total_opening_area:.1f} m² ({total_opening_area * 10.764:.1f} ft²)")
+    # Plot 1: Confidence-weighted boundary
+    ax1.set_title(f"Confidence-Weighted Boundary\nArea: {result['room_area_sqm']:.1f} m²")
+    ax1.set_xlabel("X (m)")
+    ax1.set_ylabel("Y (m)")
+    ax1.grid(True, alpha=0.3)
+    ax1.set_aspect('equal')
     
-    # Save results
-    with open(output_path, 'w') as f:
-        json.dump(results, f, indent=2, cls=NpEncoder)
+    if len(result['room_boundary']) >= 3:
+        boundary = np.array(result['room_boundary'])
+        boundary_closed = np.vstack([boundary, boundary[0]])
+        ax1.fill(boundary_closed[:, 0], boundary_closed[:, 1], 
+                alpha=0.3, color='lightblue', edgecolor='blue', linewidth=2)
+        ax1.scatter(boundary[:, 0], boundary[:, 1], 
+                   c='red', s=50, alpha=0.7, zorder=5)
+        
+        # Number the vertices
+        for i, point in enumerate(boundary):
+            ax1.annotate(str(i), point, xytext=(5, 5), textcoords='offset points',
+                        fontsize=8, ha='left')
     
-    print(f"Results saved to {output_path}")
-    return results
+    # Plot 2: Confidence-based openings
+    ax2.set_title(f"Confidence-Based Openings\n{len(result['openings'])} detected")
+    ax2.set_xlabel("X (m)")
+    ax2.set_ylabel("Y (m)")
+    ax2.grid(True, alpha=0.3)
+    ax2.set_aspect('equal')
+    
+    # Draw boundary in gray
+    if len(result['room_boundary']) >= 3:
+        boundary = np.array(result['room_boundary'])
+        boundary_closed = np.vstack([boundary, boundary[0]])
+        ax2.plot(boundary_closed[:, 0], boundary_closed[:, 1], 
+                color='gray', linewidth=1, alpha=0.5)
+    
+    # Draw openings
+    for opening in result['openings']:
+        pos = opening['position']
+        color = 'orange' if opening['type'] == 'window' else 'red'
+        ax2.plot(pos[0], pos[1], 'o', color=color, markersize=10, alpha=0.8)
+        ax2.annotate(f"{opening['type']}\n{opening['area_m2']:.2f}m²", 
+                    (pos[0], pos[1]), xytext=(10, 10), textcoords='offset points',
+                    fontsize=8, ha='left', va='bottom',
+                    bbox=dict(boxstyle="round,pad=0.3", facecolor=color, alpha=0.3))
+    
+    # Plot 3: Confidence analysis
+    ax3.set_title("Confidence Data Analysis")
+    ax3.axis('off')
+    
+    if result['confidence_analysis']:
+        conf_stats = result['confidence_analysis']
+        conf_text = f"""CONFIDENCE ANALYSIS:
+
+Maps Available: {conf_stats['loaded_count']} of {conf_stats['file_count']}
+Resolution: {conf_stats['resolution']}
+Value Range: {conf_stats['value_range'][0]:.1f} - {conf_stats['value_range'][1]:.1f}
+Mean ± Std: {conf_stats['mean']:.2f} ± {conf_stats['std']:.2f}
+
+AUTO-TUNED THRESHOLDS:
+High: {conf_stats['auto_thresholds']['high_confidence']:.2f}
+Medium: {conf_stats['auto_thresholds']['medium_confidence']:.2f}  
+Low: {conf_stats['auto_thresholds']['low_confidence']:.2f}
+
+PERCENTILES:
+90th: {conf_stats['percentiles']['90th']:.2f}
+75th: {conf_stats['percentiles']['75th']:.2f}
+50th: {conf_stats['percentiles']['50th']:.2f}
+25th: {conf_stats['percentiles']['25th']:.2f}"""
+    else:
+        conf_text = "No confidence data available"
+    
+    ax3.text(0.05, 0.95, conf_text, transform=ax3.transAxes, fontsize=9,
+             verticalalignment='top', fontfamily='monospace',
+             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+    
+    # Plot 4: Frame analysis
+    ax4.set_title("Frame Metadata Analysis")
+    ax4.axis('off')
+    
+    if result['frame_analysis']:
+        frame_stats = result['frame_analysis']
+        frame_text = f"""FRAME ANALYSIS:
+
+Frames: {frame_stats['total_frames_analyzed']} of {frame_stats['total_frames_available']}
+Available Fields: {len(frame_stats['available_fields'])}
+
+"""
+        
+        # Add motion quality stats if available
+        if 'motionQuality_stats' in frame_stats:
+            mq = frame_stats['motionQuality_stats']
+            frame_text += f"""MOTION QUALITY:
+Mean: {mq['mean']:.3f} ± {mq['std']:.3f}
+Range: {mq['min']:.3f} - {mq['max']:.3f}
+
+"""
+        
+        # Add other stats
+        for field in ['averageVelocity_stats', 'exposureDuration_stats']:
+            if field in frame_stats:
+                stats = frame_stats[field]
+                field_name = field.replace('_stats', '').replace('average', 'Avg ')
+                frame_text += f"""{field_name}:
+Mean: {stats['mean']:.3f}
+Range: {stats['min']:.3f} - {stats['max']:.3f}
+
+"""
+    else:
+        frame_text = "No frame metadata available"
+    
+    ax4.text(0.05, 0.95, frame_text, transform=ax4.transAxes, fontsize=9,
+             verticalalignment='top', fontfamily='monospace',
+             bbox=dict(boxstyle='round', facecolor='lightcyan', alpha=0.8))
+    
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=150, bbox_inches='tight')
+    plt.close()
+    print(f"Confidence-guided visualization saved to {output_path}")
 
 def main():
     import sys
+    
     if len(sys.argv) < 3:
         print("Usage: python v16_confidence_guided.py <mesh.obj> <output.json> [visualization.png]")
-        sys.exit(1)
+        return
     
-    mesh_path = sys.argv[1]
-    output_path = sys.argv[2]
-    visualization_path = sys.argv[3] if len(sys.argv) > 3 else None
+    mesh_path = Path(sys.argv[1])
+    output_path = Path(sys.argv[2])
+    viz_path = Path(sys.argv[3]) if len(sys.argv) > 3 else output_path.with_suffix('.png')
     
-    process_mesh_confidence_guided(mesh_path, output_path, visualization_path)
+    if not mesh_path.exists():
+        print(f"Error: {mesh_path} not found")
+        return
+    
+    try:
+        result = analyze_mesh_confidence_guided(mesh_path)
+        if result:
+            # Save results
+            output_path.parent.mkdir(exist_ok=True, parents=True)
+            with open(output_path, 'w') as f:
+                json.dump(result, f, indent=2, cls=NpEncoder)
+            print(f"\n✅ Results saved to {output_path}")
+            
+            # Create visualization
+            create_visualization(result, viz_path)
+            
+            # Print summary
+            print(f"\n📊 Summary:")
+            print(f"   Room area: {result['room_area_sqm']:.1f} m² ({result['room_area_sqft']:.1f} ft²)")
+            print(f"   Boundary vertices: {len(result['room_boundary'])}")
+            print(f"   Confidence-weighted vertices: {result['analysis_stats']['confidence_weighted_vertices']:,}")
+            print(f"   Transparency openings: {result['analysis_stats']['transparency_openings']}")
+            print(f"   Confidence maps used: {result['parameters']['confidence_maps_used']}")
+            print(f"   Floor level: {result['parameters']['floor_level']:.2f}m")
+            
+            if result['parameters']['auto_thresholds']:
+                thresholds = result['parameters']['auto_thresholds']
+                print(f"   Confidence thresholds: H={thresholds['high_confidence']:.2f}, " +
+                      f"M={thresholds['medium_confidence']:.2f}, L={thresholds['low_confidence']:.2f}")
+        else:
+            print("❌ Analysis failed")
+            
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
     main()

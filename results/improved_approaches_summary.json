@@ -1,0 +1,90 @@
+[
+  {
+    "approach": "v10_tests",
+    "mesh": "large",
+    "area": 7.774838776097867,
+    "walls": 9,
+    "openings": 6,
+    "area_error": 32.39270629480116,
+    "wall_error": 28.57142857142857,
+    "opening_error": 100.0,
+    "overall_accuracy": 46.345288377923424
+  },
+  {
+    "approach": "v10_tests",
+    "mesh": "small",
+    "area": 2.2203284681815703,
+    "walls": 5,
+    "openings": 1,
+    "area_error": 80.69279592885592,
+    "wall_error": 28.57142857142857,
+    "opening_error": 66.66666666666666,
+    "overall_accuracy": 41.356369611016284
+  },
+  {
+    "approach": "v11_tests",
+    "mesh": "large",
+    "area": 16.760797914150004,
+    "walls": 5,
+    "openings": 2,
+    "area_error": 45.74606881869568,
+    "wall_error": 28.57142857142857,
+    "opening_error": 33.33333333333333,
+    "overall_accuracy": 64.11638975884748
+  },
+  {
+    "approach": "v11_tests",
+    "mesh": "small",
+    "area": 3.9921398449999987,
+    "walls": 7,
+    "openings": 21,
+    "area_error": 65.28574047826088,
+    "wall_error": 0.0,
+    "opening_error": 600.0,
+    "overall_accuracy": -121.76191349275362
+  },
+  {
+    "approach": "v12_tests",
+    "mesh": "large",
+    "area": 7.86846297742686,
+    "walls": 9,
+    "openings": 6,
+    "area_error": 31.578582804983824,
+    "wall_error": 28.57142857142857,
+    "opening_error": 100.0,
+    "overall_accuracy": 46.6166628745292
+  },
+  {
+    "approach": "v12_tests",
+    "mesh": "small",
+    "area": 3.0229459270024504,
+    "walls": 8,
+    "openings": 5,
+    "area_error": 73.71351367823956,
+    "wall_error": 14.285714285714285,
+    "opening_error": 66.66666666666666,
+    "overall_accuracy": 48.444701789793164
+  },
+  {
+    "approach": "v14_tests",
+    "mesh": "large",
+    "area": 13.649951587200013,
+    "walls": 11,
+    "openings": 1280,
+    "area_error": 18.69523119304359,
+    "wall_error": 57.14285714285714,
+    "opening_error": 42566.66666666667,
+    "overall_accuracy": -14114.168251667523
+  },
+  {
+    "approach": "v14_tests",
+    "mesh": "small",
+    "area": 3.920661134399996,
+    "walls": 8,
+    "openings": 0,
+    "area_error": 65.9072944834783,
+    "wall_error": 14.285714285714285,
+    "opening_error": 100,
+    "overall_accuracy": 39.935663743602476
+  }
+]

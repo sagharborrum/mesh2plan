@@ -41,7 +41,7 @@ self.onmessage = function(e) {
   const allRaw = [...xWalls, ...zWalls];
   const boundary = filterBoundaryWalls(allRaw, rotated);
   self.postMessage({ type: 'progress', msg: `Filtered ${allRaw.length} → ${boundary.length} boundary walls`, pct: 85 });
-  let walls = mergeWalls(boundary);
+  let walls = mergeWalls(boundary, 0.20);
   
   // Convert coords back
   for (const w of walls) {
@@ -188,24 +188,45 @@ function findWalls(rotated, axis, minInliers=10, distThresh=0.04) {
 }
 
 function filterBoundaryWalls(walls, rotated) {
-  // Real walls are at room boundaries — points primarily on one side
-  // Furniture creates peaks with points on both sides
+  // Real walls are at room boundaries — near the extremes of the point cloud
+  // Furniture creates peaks in the interior
+  // Strategy: find the bounding box of all points, then check if wall is
+  // within the outer 30% of the range on its axis
+  
+  const xCoords = rotated.map(p => p[0]);
+  const zCoords = rotated.map(p => p[1]);
+  const xMin = Math.min(...xCoords.length > 10000 ? xCoords.filter((_,i) => i%10===0) : xCoords);
+  const xMax = Math.max(...xCoords.length > 10000 ? xCoords.filter((_,i) => i%10===0) : xCoords);
+  const zMin = Math.min(...zCoords.length > 10000 ? zCoords.filter((_,i) => i%10===0) : zCoords);
+  const zMax = Math.max(...zCoords.length > 10000 ? zCoords.filter((_,i) => i%10===0) : zCoords);
+  
+  const xRange = xMax - xMin;
+  const zRange = zMax - zMin;
+  const margin = 0.30; // outer 30% on each side
+  
   return walls.filter(w => {
     const axis = w.axis === 'x' ? 0 : 1;
     const pos = w.position;
-    const band = 0.3; // check 30cm on each side
+    const mn = axis === 0 ? xMin : zMin;
+    const mx = axis === 0 ? xMax : zMax;
+    const range = mx - mn;
+    
+    // Wall is "boundary" if it's in outer margin
+    const relPos = (pos - mn) / range;
+    if (relPos < margin || relPos > (1 - margin)) return true;
+    
+    // Interior wall — check density ratio as tiebreaker
+    const band = 0.3;
     let below = 0, above = 0;
     for (const p of rotated) {
       const d = p[axis] - pos;
       if (d < -0.06 && d > -band) below++;
       else if (d > 0.06 && d < band) above++;
     }
-    // A real boundary wall has asymmetric density — most points on one side
     const total = below + above;
-    if (total < 20) return true; // not enough data, keep it
+    if (total < 20) return true;
     const ratio = Math.min(below, above) / Math.max(below, above);
-    // ratio < 0.4 means mostly one-sided (wall), > 0.6 means both sides (furniture)
-    return ratio < 0.5;
+    return ratio < 0.35; // strict for interior walls only
   });
 }
 
@@ -243,7 +264,7 @@ function detectGaps(walls, rotated, angleDeg) {
         let p1, p2, mid;
         if (w.axis === 'x') { p1 = rotPt([w.position, near[i]], angleRad); p2 = rotPt([w.position, near[i+1]], angleRad); mid = rotPt([w.position, gMid], angleRad); }
         else { p1 = rotPt([near[i], w.position], angleRad); p2 = rotPt([near[i+1], w.position], angleRad); mid = rotPt([gMid, w.position], angleRad); }
-        gaps.push({ type: gap > 0.6 && gap < 1.3 ? 'door' : (gap < 2.0 ? 'window' : 'opening'), width: gap, start: p1, end: p2, mid });
+        gaps.push({ type: gap >= 0.7 && gap <= 1.2 ? 'door' : (gap > 1.2 && gap < 2.2 ? 'window' : 'opening'), width: gap, start: p1, end: p2, mid });
       }
     }
   }
