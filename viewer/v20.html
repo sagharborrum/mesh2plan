@@ -55,11 +55,11 @@ const data = {
   20: {
     title: 'v20 — Hough Line Transform',
     approach: 'Canny Edge + HoughLinesP',
-    area: '9.7m²',
-    desc: 'Classic computer vision pipeline. Builds high-res density image (2cm/pixel), applies Canny edge detection, then HoughLinesP to find line segments. Clusters parallel segments and selects boundary walls. The Canny edges clearly show the L-shape, but Hough clustering only found 4 Z-walls and missed the short step wall for the extension. Result is a clean rectangle.',
-    img: '../results/v20_hough/v20_export_refined_floorplan.png',
-    json: '../results/v20_hough/v20_export_refined_results.json',
-    walls: 4, best: false,
+    area: '9.5m²',
+    desc: 'Classic computer vision pipeline. Builds high-res density image (2cm/pixel), applies Canny edge detection, then HoughLinesP to find line segments. Clusters parallel segments and selects boundary walls. The Canny edges clearly show the L-shape, but Hough clustering only found 4 Z-walls and now detects the L-shape step wall at Z=0.71 with lowered Hough threshold.',
+    img: '../results/v20b_hough/v20_export_refined_floorplan.png',
+    json: '../results/v20b_hough/v20_export_refined_results.json',
+    walls: 5, best: false,
     nav: ['v19.html', 'v21.html'],
   },
   21: {

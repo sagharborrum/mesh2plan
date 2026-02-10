@@ -65,11 +65,11 @@ const data = {
   21: {
     title: 'v21 — Raycasting from Centroid',
     approach: 'Density Mask + Ray Marching',
-    area: '3.0m²',
-    desc: 'Experimental approach. Builds density mask via thresholding + morphological ops, then casts 720 rays from the room centroid outward. Each ray finds the last "inside" point before exiting the mask. Hit points are simplified to rectilinear polygon. The room mask correctly shows the L-shape, but the polygon simplification is too aggressive and the centroid estimate was off. Needs significant work.',
-    img: '../results/v21_raycast/v21_export_refined_floorplan.png',
-    json: '../results/v21_raycast/v21_export_refined_results.json',
-    walls: 10, best: false,
+    area: '10.4m²',
+    desc: 'Experimental approach. Builds density mask via thresholding + morphological ops, then casts 720 rays from the room centroid outward. Each ray finds the last "inside" point before exiting the mask. Hit points are simplified to rectilinear polygon. The room mask correctly shows the L-shape, but Fixed: threshold=1, close-then-fill pipeline. Contour extraction + D-P simplification produces clean 6-vertex L-shape. Exact match to reference!.',
+    img: '../results/v21b_raycast/v21_export_refined_floorplan.png',
+    json: '../results/v21b_raycast/v21_export_refined_results.json',
+    walls: 6, best: false,
     nav: ['v20.html', 'v17.html'],
   },
 };
