@@ -79,88 +79,79 @@ Once planes are detected, classification is straightforward:
 
 ## Research & References
 
-### 🔥 Most Relevant Papers
+### ✅ Working Code — Sorted by GitHub Stars
 
-| Paper | Year | Key Contribution | Code |
-|-------|------|-----------------|------|
-| **Floorplan-SLAM** | Mar 2025 | **Real-time** point-plane SLAM → floorplan at 25-45 FPS, no GPU needed. 1000m² in 9 min vs 10+ hrs. Multi-session. Stereo camera only. | [arXiv](https://arxiv.org/abs/2503.00397) |
-| **CAGE** (Edge-centric) | Sep 2025 | Native edge representation for floorplans via dual-query transformer. 99.1% room F1, 91.7% corner F1. SOTA on Structured3D/SceneCAD. | [GitHub](https://github.com/ee-Liu/CAGE) |
-| **RoomFormer** | CVPR 2023 | Transformer: 3D scan → room polygons directly. Two-level queries (polygon + corner). End-to-end, no heuristic pipeline. | [GitHub](https://github.com/ywyue/RoomFormer) |
-| **Plane-DUSt3R** | Feb 2025 | Multi-view perspective images → room layout planes via DUSt3R foundation model. Training-free, works on cartoon/real. | [GitHub](https://github.com/justacar/Plane-DUSt3R) |
-| **PLANA3R** | Oct 2025 | Pose-free metric planar 3D reconstruction from two views. No explicit plane supervision needed. Emergent plane segmentation. | [Project](https://lck666666.github.io/plana3r) |
-| **Structure-preserving Planar Simplification** | Aug 2024 | Point cloud → RANSAC planes → wall meshes → ceiling/floor clipping. Manhattan alignment. Full pipeline. | [arXiv](https://arxiv.org/abs/2408.06814) |
-| **Manhattan SDF** | CVPR 2022 | Neural SDF + Manhattan world assumption → planar constraints for walls/floors. Joint geometry + semantics optimization. | [GitHub](https://zju3dv.github.io/manhattan_sdf) |
+Projects with released, runnable code.
 
-### Plane Detection & Estimation
+| ⭐ | Project | Year | What it does | Code |
+|---:|---------|------|-------------|------|
+| 3,193 | **SuGaR** | 2023 | Gaussian splat → mesh extraction (surface-aligned) | [GitHub](https://github.com/Anttwo/SuGaR) |
+| 650 | **pyRANSAC-3D** | — | Fit planes, cuboids, cylinders to point clouds. Pure Python. | [GitHub](https://github.com/leomariga/pyRANSAC-3D) |
+| 605 | **PlaneRCNN** (NVIDIA) | CVPR 2019 | Single-image plane detection + 3D reconstruction | [GitHub](https://github.com/NVlabs/planercnn) |
+| 528 | **Manhattan SDF** | CVPR 2022 | Neural SDF + Manhattan assumption → planar walls/floors. Joint geometry+semantics. | [GitHub](https://github.com/zju3dv/manhattan_sdf) |
+| 374 | **Planar Reconstruction** | CVPR 2019 | Real-time (30fps) piece-wise planar 3D from single image. Arbitrary # planes. | [GitHub](https://github.com/svip-lab/PlanarReconstruction) |
+| 271 | **RoomFormer** | CVPR 2023 | Transformer: 3D scan → room polygons directly. End-to-end, SOTA on Structured3D. | [GitHub](https://github.com/ywyue/RoomFormer) |
+| 248 | **FloorNet** | 2018 | PointNet + CNN: RGBD streams → vectorized floorplan. 155 house dataset. | [GitHub](https://github.com/art-programmer/FloorNet) |
+| 233 | **GaussianRoom** | Dec 2024 | SDF + 3DGS for indoor scenes. Solves textureless walls. | [GitHub](https://github.com/xhd0612/GaussianRoom) |
+| 115 | **Multiple Planes Detection** | — | Fast iterative RANSAC multi-plane detection. Open3D. | [GitHub](https://github.com/yuecideng/Multiple_Planes_Detection) |
+| 91 | **Orthogonal Planes** | ICRA 2020 | Multi-purpose primitive detection (planes + corners) in unorganized 3D point clouds | [GitHub](https://github.com/c-sommer/orthogonal-planes) |
+| 73 | **AirPlanes** (Niantic) | CVPR 2024 | 3D-consistent plane embeddings from posed RGB. Sequential RANSAC + learned MLP. | [GitHub](https://github.com/nianticlabs/airplanes) |
+| 55 | **DOPNet** | CVPR 2023 | Disentangle orthogonal planes for panoramic room layout estimation | [GitHub](https://github.com/zhijieshen-bjtu/DOPNet) |
+| 44 | **Plane-DUSt3R** | Feb 2025 | Multi-view images → room layout planes via DUSt3R foundation model. Training-free. | [GitHub](https://github.com/justacar/Plane-DUSt3R) |
+| 12 | **CAGE** | Sep 2025 | Edge-centric floorplan via dual-query transformer. 99.1% room F1. SOTA. | [GitHub](https://github.com/ee-Liu/CAGE) |
+| 11 | **FloorSAM** | Sep 2025 | SAM zero-shot + LiDAR density maps → room segmentation → vectorized floorplans | [GitHub](https://github.com/Silentbarber/FloorSAM) |
+| 11 | **torch_ransac3d** | — | GPU-accelerated RANSAC with PyTorch/CUDA | [GitHub](https://github.com/harrydobbs/torch_ransac3d) |
+| 7 | **Parallel-RANSAC** | — | GPU-parallelized RANSAC plane extraction from RGB-D | [GitHub](https://github.com/alehdaghi/Parallel-RANSAC) |
+| 3 | **python-plane-ransac** | — | CUDA-parallelized plane segmentation | [GitHub](https://github.com/misha-kis/python-plane-ransac) |
 
-| Paper | Year | Key Contribution | Code |
-|-------|------|-----------------|------|
-| **AirPlanes** (Niantic) | CVPR 2024 | 3D-consistent plane embeddings from posed RGB. Sequential RANSAC + learned MLP. | [GitHub](https://github.com/nianticlabs/airplanes) |
-| **PlanarGS** | Oct 2025 | Language-prompted planar priors for 3DGS indoor reconstruction. Cross-view fusion. | [Project](https://planargs.github.io) |
-| **2DGS-Room** | Dec 2024 | 2D Gaussian Splatting for indoor scenes with monocular depth/normal priors. SOTA on ScanNet++. | [arXiv](https://arxiv.org/abs/2412.03428) |
-| **PlaneRCNN** (NVIDIA) | CVPR 2019 | Single-image plane detection + reconstruction | [GitHub](https://github.com/NVlabs/planercnn) |
-| **Planar Reconstruction** (Associative Embedding) | CVPR 2019 | Real-time (30fps) piece-wise planar 3D from single image. Arbitrary # planes. | [GitHub](https://github.com/svip-lab/PlanarReconstruction) |
-| **Efficient RANSAC** | 2007 | Foundation for point cloud shape detection | [Code](https://cg.cs.uni-bonn.de/en/publications/paper-details/schnabel-2007-efficient/) |
+### 📄 Paper Only — No Code Released Yet
 
-### Scan → Floorplan / BIM
-
-| Paper | Year | Key Contribution | Code |
-|-------|------|-----------------|------|
-| **FloorSAM** | Sep 2025 | SAM zero-shot + LiDAR density maps → room segmentation → vectorized floorplans | [GitHub](https://github.com/Silentbarber/FloorSAM) |
-| **MultiFloor3D** | NeurIPS 2025 | Training-free mesh → layout polygons (walls/floors/ceilings), multi-floor | [Project](https://houselayout3d.github.io) |
-| **FloorNet** | 2018 | PointNet + CNN: RGBD streams → floorplan. 155 house dataset. | [GitHub](https://github.com/art-programmer/FloorNet) |
-| **A-Scan2BIM** | Nov 2023 | Assistive Scan-to-BIM: auto-regressive Revit API sequence prediction. 89h modeling data. | [Project](https://a-scan2bim.github.io) |
+| Project | Year | What it does | Link |
+|---------|------|-------------|------|
+| **Floorplan-SLAM** | Mar 2025 | **Real-time** (25-45 FPS) point-plane SLAM → floorplan, no GPU. 1000m² in 9 min. | [arXiv](https://arxiv.org/abs/2503.00397) |
+| **PLANA3R** | Oct 2025 | Pose-free metric planar 3D reconstruction from two views. Emergent plane segmentation. | [Project](https://lck666666.github.io/plana3r) |
+| **PlanarGS** | Oct 2025 | Language-prompted planar priors for 3DGS indoor reconstruction. | [Project](https://planargs.github.io) |
+| **2DGS-Room** | Dec 2024 | 2D Gaussian Splatting for indoor scenes. SOTA on ScanNet++. | [arXiv](https://arxiv.org/abs/2412.03428) |
+| **Structure-preserving Planar Simplification** | Aug 2024 | RANSAC → wall meshes → ceiling/floor clipping. Manhattan alignment. Full pipeline. | [arXiv](https://arxiv.org/abs/2408.06814) |
+| **MultiFloor3D** | NeurIPS 2025 | Training-free mesh → layout polygons, multi-floor buildings. | [Project](https://houselayout3d.github.io) |
 | **PLANING** | Jan 2026 | On-the-fly reconstruction: geometric primitives + neural Gaussians. 5x faster than 2DGS. | [Project](https://city-super.github.io/PLANING/) |
+| **A-Scan2BIM** | Nov 2023 | Auto-regressive Revit API sequence prediction from scans. 89h professional data. | [Project](https://a-scan2bim.github.io) |
+| **Defurnished Replicas** | Jun 2025 | Remove furniture → clean walls/floors mesh | [arXiv](https://arxiv.org/abs/2506.05338) |
+| **3D-CRS** | Apr 2024 | Occluded surface completion (hidden walls behind furniture) | [arXiv](https://arxiv.org/abs/2404.03070) |
 
-### Indoor Reconstruction (Supporting)
+### 📊 Datasets & Benchmarks
 
-| Paper | Year | Key Contribution | Code |
-|-------|------|-----------------|------|
-| **GaussianRoom** | Dec 2024 | SDF + 3DGS for indoor scenes. Solves textureless walls. | [GitHub](https://github.com/xhd0612/GaussianRoom) |
-| **Defurnished Replicas** | Jun 2025 | Remove furniture from mesh → simplified defurnished mesh (SDM) → clean walls/floors | [arXiv](https://arxiv.org/abs/2506.05338) |
-| **3D-CRS** | Apr 2024 | Indoor 3D reconstruction with occluded surface completion (hidden walls behind furniture) | [arXiv](https://arxiv.org/abs/2404.03070) |
+| Dataset | ⭐ | Size | What's in it |
+|---------|---:|------|-------------|
+| [**InteriorGS**](https://github.com/manycore-research/InteriorGS) | 212 | 1,000 scenes | 3DGS + semantic labels + floorplans + occupancy maps |
+| **Structured3D** | — | 21k rooms | Photo-realistic synthetic with layout annotations |
+| **ScanNet / ScanNet++** | — | 1,500+ scenes | Real RGB-D indoor reconstructions |
+| **ResPlan** | — | 17k floorplans | Residential plans with wall/door/window annotations |
+| **HouseLayout3D** | — | Multi-floor | Real-world multi-floor layout benchmark |
+| **CubiCasa5K** | — | 5,000 floorplans | 80+ object categories |
+| **3D-FRONT** | — | 18,968 rooms | Professional interior designs with textured 3D furniture |
 
-### Datasets & Benchmarks
+### 📚 Curated Lists
 
-| Dataset | Size | What's in it |
-|---------|------|-------------|
-| **Structured3D** | 21k rooms | Photo-realistic synthetic indoor scenes with layout annotations |
-| **ScanNet / ScanNet++** | 1500+ scenes | Real RGB-D indoor reconstructions with semantic labels |
-| **InteriorGS** | 1000 scenes | 3DGS with semantic labels + floorplans + occupancy maps |
-| **ResPlan** | 17k floorplans | Detailed residential plans with wall/door/window annotations |
-| **HouseLayout3D** | Multi-floor | Real-world benchmark for full building-scale layout estimation |
-| **CubiCasa5K** | 5000 floorplans | Annotated into 80+ object categories |
-| **3D-FRONT** | 18,968 rooms | Professional interior designs with textured 3D furniture |
+| ⭐ | List | Description |
+|---:|------|-------------|
+| 8,302 | [awesome-3D-gaussian-splatting](https://github.com/MrNeRF/awesome-3D-gaussian-splatting) | Comprehensive 3DGS paper list including mesh extraction |
+| 200 | [awesome-planar-reconstruction](https://github.com/chenzhaiyu/awesome-planar-reconstruction) | Plane detection, reconstruction, floorplan generation papers |
 
-### Curated Lists
-- [awesome-planar-reconstruction](https://github.com/chenzhaiyu/awesome-planar-reconstruction) — Comprehensive paper list for plane detection, single/multi-view reconstruction, floorplan generation
-- [awesome-3D-gaussian-splatting](https://github.com/MrNeRF/awesome-3D-gaussian-splatting) — Splat → mesh methods
-
-### Relevant Open Source Tools
-
-| Tool | What it does | Language |
-|------|-------------|----------|
-| [pyRANSAC-3D](https://github.com/leomariga/pyRANSAC-3D) | Fit planes, cuboids, cylinders to point clouds | Python |
-| [torch_ransac3d](https://github.com/harrydobbs/torch_ransac3d) | GPU-accelerated RANSAC with PyTorch/CUDA | Python |
-| [Multiple_Planes_Detection](https://github.com/yuecideng/Multiple_Planes_Detection) | Fast iterative RANSAC multi-plane detection | Python/Open3D |
-| [python-plane-ransac](https://github.com/misha-kis/python-plane-ransac) | CUDA-parallelized plane segmentation | Python/CUDA |
-| [SuGaR](https://github.com/Anttwo/SuGaR) | Gaussian splat → mesh extraction | Python |
-| [InteriorGS](https://github.com/manycore-research/InteriorGS) | 1000 indoor scenes with semantic labels + floorplans (dataset) | — |
-
-### Apple RoomPlan (Reference)
+### 🍎 Apple RoomPlan (Reference)
 - Uses LiDAR + ARKit for real-time room scanning
 - Outputs `CapturedRoom` with walls, floors, doors, windows, furniture
 - Limitations: Apple-only, requires LiDAR device, simplified box geometry
 - **Our goal**: Similar output quality but from any mesh, cross-platform, browser-based
 
-### Key Takeaways from Research
+### Key Takeaways
 
-1. **Floorplan-SLAM is the closest to our goal** — real-time, no GPU, plane-based SLAM → floorplan. But it needs stereo camera input, not a pre-existing mesh.
-2. **CAGE / RoomFormer** are SOTA for scan → vectorized floorplan, but require training on Structured3D.
-3. **Structure-preserving Planar Simplification** (2408.06814) is the most practical pipeline for our use case: RANSAC → wall meshes → ceiling/floor clipping. Fully geometric, no ML.
-4. **Manhattan world assumption** is used by almost every method — most indoor spaces have orthogonal walls. We should support it as optional constraint.
-5. **The defurnishing problem** is real — scanned meshes have furniture that obscures walls. Need to handle or at least detect clutter.
-6. **Plane-DUSt3R and PLANA3R** show the trend: foundation models that understand planar structure from images, training-free.
+1. **Best starting points with code**: pyRANSAC-3D (650⭐) for plane fitting, RoomFormer (271⭐) for end-to-end scan→floorplan, Manhattan SDF (528⭐) for planar constraints
+2. **Floorplan-SLAM** is the dream (real-time, no GPU) but no code released yet
+3. **CAGE** (12⭐) is newest SOTA but very fresh — worth watching
+4. **Structure-preserving Planar Simplification** describes exactly our pipeline (RANSAC → walls → clip ceilings/floors) but no code
+5. **Manhattan world assumption** used by almost every method — should be optional constraint
+6. **Defurnishing is a real problem** — scanned meshes have furniture obscuring walls
 
 ## Tech Stack (Planned)
 
