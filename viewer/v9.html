@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mesh2plan v9 — Real-Time Browser Floor Plan</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a1a2e; color: #eee; font-family: system-ui, sans-serif; overflow: hidden; }
+#container { display: flex; width: 100vw; height: 100vh; }
+#view3d { flex: 1; position: relative; }
+#sidebar { width: 420px; display: flex; flex-direction: column; background: #0f0f24; border-left: 1px solid rgba(255,255,255,0.08); }
+#floorplan { flex: 1; position: relative; }
+#floorplan canvas { width: 100%; height: 100%; }
+#fp-header { position: absolute; top: 0; left: 0; right: 0; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; background: rgba(15,15,36,0.92); z-index: 2; }
+#fp-title { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 1px; }
+#fp-info { font-size: 11px; color: #888; }
+#controls { position: absolute; top: 16px; left: 16px; z-index: 10; background: rgba(15,15,36,0.94); border-radius: 12px; padding: 14px 16px; min-width: 240px; backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); }
+#controls h2 { font-size: 12px; margin-bottom: 10px; color: #555; text-transform: uppercase; letter-spacing: 1.5px; }
+.layer { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; cursor: pointer; font-size: 12px; }
+.layer input { cursor: pointer; } .layer label { cursor: pointer; flex: 1; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.sep { border-top: 1px solid rgba(255,255,255,0.06); margin: 8px 0; }
+.srow { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; font-size: 11px; color: #888; }
+.srow label { min-width: 55px; } .srow input[type=range] { flex: 1; }
+#info { position: absolute; bottom: 16px; left: 16px; z-index: 10; background: rgba(15,15,36,0.92); border-radius: 8px; padding: 7px 12px; font-size: 11px; color: #666; border: 1px solid rgba(255,255,255,0.06); }
+#stats { padding: 10px 16px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 11px; color: #555; line-height: 1.8; }
+#stats .row { display: flex; justify-content: space-between; } #stats .val { color: #999; font-weight: 500; }
+.btn-row { padding: 8px 16px; display: flex; gap: 8px; }
+.btn-row button { flex: 1; padding: 6px 10px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); color: #aaa; border-radius: 6px; cursor: pointer; font-size: 11px; transition: all 0.15s; }
+.btn-row button:hover { background: rgba(255,255,255,0.1); color: #eee; }
+#dropzone { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 200; display: flex; align-items: center; justify-content: center; background: rgba(0,229,255,0.08); border: 3px dashed rgba(0,229,255,0.4); pointer-events: none; opacity: 0; transition: opacity 0.2s; }
+#dropzone.active { opacity: 1; }
+#dropzone span { font-size: 20px; color: #00E5FF; }
+#loading { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #1a1a2e; gap: 16px; }
+#loading.hidden { display: none; }
+#loading .title { font-size: 24px; color: #00E5FF; font-weight: 300; }
+#loading .sub { font-size: 13px; color: #555; }
+#loading .drop-hint { font-size: 14px; color: #888; margin-top: 20px; padding: 20px 40px; border: 2px dashed rgba(255,255,255,0.1); border-radius: 12px; cursor: pointer; transition: all 0.2s; }
+#loading .drop-hint:hover { border-color: rgba(0,229,255,0.3); color: #00E5FF; }
+#progress { font-size: 11px; color: #666; }
+</style>
+</head>
+<body>
+<div id="dropzone"><span>Drop OBJ file to analyze</span></div>
+<div id="loading">
+  <div class="title">mesh2plan</div>
+  <div class="sub">3D mesh → floor plan in your browser</div>
+  <div class="drop-hint" id="dropHint">Drop an OBJ file here — or click to browse</div>
+  <input type="file" id="fileInput" accept=".obj" style="display:none">
+  <div id="progress"></div>
+</div>
+<div id="container">
+  <div id="view3d">
+    <div id="controls">
+      <h2>mesh2plan v9</h2>
+      <div id="layers"></div>
+      <div class="sep"></div>
+      <div class="srow"><label>Mesh</label><input type="range" id="meshOpacity" min="0" max="100" value="50"></div>
+      <div class="srow"><label>Wire</label><input type="checkbox" id="wireframe"></div>
+      <div class="sep"></div>
+      <div class="srow"><label>Slice Y</label><input type="range" id="sliceY" min="0" max="100" value="40"></div>
+    </div>
+    <div id="info">Loading...</div>
+  </div>
+  <div id="sidebar">
+    <div id="floorplan">
+      <div id="fp-header"><span id="fp-title">Floor Plan</span><span id="fp-info"></span></div>
+      <canvas id="fpCanvas"></canvas>
+    </div>
+    <div class="btn-row">
+      <button onclick="exportSVG()">⬇ SVG</button>
+      <button onclick="loadDemo()">📦 Demo scan</button>
+    </div>
+    <div id="stats"></div>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" }}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
+
+const CC = {
+  wallLine: '#00E5FF', dim: '#FFD54F', door: '#2196F3', window: '#4CAF50',
+  room: '#00E5FF', slice: '#FF5722',
+};
+
+// Scene
+const container = document.getElementById('view3d');
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x1a1a2e);
+const camera = new THREE.PerspectiveCamera(60, 1, 0.01, 200);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+container.appendChild(renderer.domElement);
+const ctrl = new OrbitControls(camera, renderer.domElement);
+ctrl.enableDamping = true; ctrl.dampingFactor = 0.05;
+scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+const dl1 = new THREE.DirectionalLight(0xffffff, 0.8); dl1.position.set(5,8,5); scene.add(dl1);
+const dl2 = new THREE.DirectionalLight(0xffffff, 0.4); dl2.position.set(-5,3,-5); scene.add(dl2);
+const grid = new THREE.GridHelper(20, 40, 0x333355, 0x222244); scene.add(grid);
+const meshGroup = new THREE.Group(); scene.add(meshGroup);
+const wallLines3D = new THREE.Group(); scene.add(wallLines3D);
+const slicePlane = new THREE.Group(); scene.add(slicePlane);
+
+let currentMesh = null;
+let meshBounds = null;
+let meshCenter = new THREE.Vector3();
+let floorYoff = 0;
+let analysisResult = null;
+
+// Expose for debugging
+window._camera = camera; window._meshGroup = meshGroup; window._scene = scene;
+
+function resize() {
+  const w = container.clientWidth, h = container.clientHeight;
+  camera.aspect = w/h; camera.updateProjectionMatrix();
+  renderer.setSize(w, h); renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+}
+window.addEventListener('resize', () => { resize(); drawFP(); }); resize();
+
+// File handling
+const dropHint = document.getElementById('dropHint');
+const fileInput = document.getElementById('fileInput');
+const dropzone = document.getElementById('dropzone');
+
+dropHint.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => { if (e.target.files[0]) loadOBJ(e.target.files[0]); });
+
+document.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('active'); });
+document.addEventListener('dragleave', e => { if (e.relatedTarget === null) dropzone.classList.remove('active'); });
+document.addEventListener('drop', e => {
+  e.preventDefault(); dropzone.classList.remove('active');
+  const file = e.dataTransfer.files[0];
+  if (file && (file.name.endsWith('.obj') || file.name.endsWith('.OBJ'))) loadOBJ(file);
+});
+
+function progress(msg) {
+  document.getElementById('progress').textContent = msg;
+  console.log(msg);
+}
+
+async function loadOBJ(file) {
+  progress(`Loading ${file.name} (${(file.size/1e6).toFixed(1)}MB)...`);
+  const text = await file.text();
+  const loader = new OBJLoader();
+  const obj = loader.parse(text);
+  
+  // Clear previous
+  meshGroup.clear(); wallLines3D.clear(); slicePlane.clear();
+  
+  // Setup mesh
+  const box = new THREE.Box3().setFromObject(obj);
+  meshCenter = box.getCenter(new THREE.Vector3());
+  obj.position.sub(meshCenter);
+  const b2 = new THREE.Box3().setFromObject(obj);
+  floorYoff = b2.min.y; obj.position.y -= floorYoff;
+  meshBounds = new THREE.Box3().setFromObject(obj);
+  
+  const sz = meshBounds.getSize(new THREE.Vector3());
+  obj.traverse(c => { if (c.isMesh) {
+    c.material = new THREE.MeshPhongMaterial({ color: 0xccddee, transparent: true, opacity: 0.6, side: THREE.DoubleSide, flatShading: true });
+  }});
+  meshGroup.add(obj);
+  
+  ctrl.target.set(0, sz.y/2, 0);
+  camera.position.set(sz.x*0.8, sz.y*0.8, sz.z*0.8); ctrl.update();
+  
+  let vc = 0, fc = 0;
+  obj.traverse(c => { if (c.isMesh) { vc += c.geometry.attributes.position.count; fc += (c.geometry.index ? c.geometry.index.count/3 : c.geometry.attributes.position.count/3); }});
+  document.getElementById('info').textContent = `${vc.toLocaleString()} verts | ${fc.toLocaleString()} faces | ${sz.x.toFixed(1)}×${sz.y.toFixed(1)}×${sz.z.toFixed(1)}m`;
+  
+  document.getElementById('loading').classList.add('hidden');
+  
+  // Collect triangles for analysis
+  progress('Extracting triangles...');
+  obj.updateMatrixWorld(true);
+  currentMesh = collectTriangles(obj);
+  
+  // Run analysis
+  progress('Analyzing floor plan...');
+  await new Promise(r => setTimeout(r, 50)); // let UI update
+  analysisResult = analyzeMesh(currentMesh, sz);
+  buildUI();
+  buildWalls3D();
+  drawFP();
+  updateStats();
+  progress('');
+}
+
+function collectTriangles(obj) {
+  const tris = [];
+  obj.traverse(c => {
+    if (!c.isMesh) return;
+    const geo = c.geometry;
+    const pos = geo.attributes.position;
+    const idx = geo.index;
+    const matrix = c.matrixWorld;
+    
+    if (idx) {
+      for (let i = 0; i < idx.count; i += 3) {
+        const v0 = new THREE.Vector3().fromBufferAttribute(pos, idx.getX(i)).applyMatrix4(matrix);
+        const v1 = new THREE.Vector3().fromBufferAttribute(pos, idx.getX(i+1)).applyMatrix4(matrix);
+        const v2 = new THREE.Vector3().fromBufferAttribute(pos, idx.getX(i+2)).applyMatrix4(matrix);
+        // Already centered + floor-aligned by obj transform
+        tris.push([v0, v1, v2]);
+      }
+    } else {
+      for (let i = 0; i < pos.count; i += 3) {
+        const v0 = new THREE.Vector3().fromBufferAttribute(pos, i).applyMatrix4(matrix);
+        const v1 = new THREE.Vector3().fromBufferAttribute(pos, i+1).applyMatrix4(matrix);
+        const v2 = new THREE.Vector3().fromBufferAttribute(pos, i+2).applyMatrix4(matrix);
+        tris.push([v0, v1, v2]);
+      }
+    }
+  });
+  return tris;
+}
+
+function sliceTrianglesAtY(triangles, y) {
+  // Find intersection points of horizontal plane y with all triangles
+  const points = [];
+  
+  for (const [v0, v1, v2] of triangles) {
+    const edges = [[v0,v1],[v1,v2],[v2,v0]];
+    const hits = [];
+    
+    for (const [a, b] of edges) {
+      if ((a.y - y) * (b.y - y) < 0) {
+        // Edge crosses the plane
+        const t = (y - a.y) / (b.y - a.y);
+        hits.push(new THREE.Vector3(
+          a.x + t * (b.x - a.x),
+          y,
+          a.z + t * (b.z - a.z)
+        ));
+      } else if (Math.abs(a.y - y) < 0.001) {
+        hits.push(a.clone());
+      }
+    }
+    
+    if (hits.length >= 2) {
+      points.push([hits[0].x, hits[0].z]);
+      points.push([hits[1].x, hits[1].z]);
+    }
+  }
+  
+  return points;
+}
+
+function findDominantAngle(points) {
+  let bestAngle = 0, bestScore = 0;
+  for (let deg = 0; deg < 180; deg += 1) {
+    const rad = deg * Math.PI / 180;
+    const c = Math.cos(-rad), s = Math.sin(-rad);
+    const rotX = points.map(p => c*p[0] - s*p[1]);
+    const rotZ = points.map(p => s*p[0] + c*p[1]);
+    
+    const xBins = histogram(rotX, 80);
+    const zBins = histogram(rotZ, 80);
+    const score = xBins.reduce((s,v) => s+v*v, 0) + zBins.reduce((s,v) => s+v*v, 0);
+    
+    if (score > bestScore) { bestScore = score; bestAngle = deg; }
+  }
+  return bestAngle;
+}
+
+function histogram(values, nBins) {
+  const mn = Math.min(...values), mx = Math.max(...values);
+  const range = mx - mn || 1;
+  const bins = new Array(nBins).fill(0);
+  for (const v of values) {
+    const i = Math.min(nBins-1, Math.floor((v - mn) / range * nBins));
+    bins[i]++;
+  }
+  return bins;
+}
+
+function findWalls(rotatedPts, axis, minInliers=10, distThresh=0.04) {
+  const coords = rotatedPts.map(p => p[axis]);
+  const other = rotatedPts.map(p => p[1-axis]);
+  
+  const nBins = Math.max(40, Math.floor((Math.max(...coords) - Math.min(...coords)) / 0.02));
+  const mn = Math.min(...coords), mx = Math.max(...coords);
+  const binW = (mx - mn) / nBins;
+  const hist = new Array(nBins).fill(0);
+  
+  for (const c of coords) {
+    const i = Math.min(nBins-1, Math.floor((c - mn) / (mx - mn) * nBins));
+    hist[i]++;
+  }
+  
+  const median = [...hist].sort((a,b) => a-b)[Math.floor(nBins/2)];
+  const threshold = Math.max(median * 3, minInliers);
+  
+  // Find peaks
+  const walls = [];
+  let inPeak = false, pw = 0, ps = 0;
+  for (let i = 0; i < nBins; i++) {
+    const bc = mn + (i + 0.5) * binW;
+    if (hist[i] > threshold) {
+      if (!inPeak) { inPeak = true; pw = 0; ps = 0; }
+      pw += hist[i]; ps += bc * hist[i];
+    } else {
+      if (inPeak) {
+        const wallPos = ps / pw;
+        // Get extent
+        const nearPts = [];
+        for (let j = 0; j < coords.length; j++) {
+          if (Math.abs(coords[j] - wallPos) < distThresh * 2) nearPts.push(other[j]);
+        }
+        if (nearPts.length >= minInliers) {
+          nearPts.sort((a,b) => a-b);
+          const start = nearPts[Math.floor(nearPts.length * 0.02)];
+          const end = nearPts[Math.floor(nearPts.length * 0.98)];
+          if (end - start > 0.3) {
+            walls.push({ axis: axis === 0 ? 'x' : 'z', position: wallPos,
+              start, end, length: end - start, nPoints: nearPts.length });
+          }
+        }
+        inPeak = false;
+      }
+    }
+  }
+  if (inPeak) {
+    const wallPos = ps / pw;
+    const nearPts = [];
+    for (let j = 0; j < coords.length; j++) {
+      if (Math.abs(coords[j] - wallPos) < distThresh * 2) nearPts.push(other[j]);
+    }
+    if (nearPts.length >= minInliers) {
+      nearPts.sort((a,b) => a-b);
+      const start = nearPts[Math.floor(nearPts.length * 0.02)];
+      const end = nearPts[Math.floor(nearPts.length * 0.98)];
+      if (end - start > 0.3) {
+        walls.push({ axis: axis === 0 ? 'x' : 'z', position: wallPos,
+          start, end, length: end - start, nPoints: nearPts.length });
+      }
+    }
+  }
+  
+  return walls;
+}
+
+function mergeWalls(walls, mergeDist=0.15) {
+  const merged = []; const used = new Set();
+  for (let i = 0; i < walls.length; i++) {
+    if (used.has(i)) continue;
+    const group = [walls[i]];
+    for (let j = i+1; j < walls.length; j++) {
+      if (used.has(j) || walls[i].axis !== walls[j].axis) continue;
+      if (Math.abs(walls[i].position - walls[j].position) < mergeDist) {
+        group.push(walls[j]); used.add(j);
+      }
+    }
+    const totalPts = group.reduce((s,g) => s + g.nPoints, 0);
+    const avgPos = group.reduce((s,g) => s + g.position * g.nPoints, 0) / totalPts;
+    const mStart = Math.min(...group.map(g => g.start));
+    const mEnd = Math.max(...group.map(g => g.end));
+    merged.push({ ...group[0], position: avgPos, start: mStart, end: mEnd, length: mEnd - mStart, nPoints: totalPts });
+    used.add(i);
+  }
+  return merged;
+}
+
+function detectGaps(walls, allRotated, angleDeg) {
+  const gaps = [];
+  const angleRad = angleDeg * Math.PI / 180;
+  
+  for (const w of walls) {
+    const axis = w.axis === 'x' ? 0 : 1;
+    const nearPts = [];
+    for (const p of allRotated) {
+      if (Math.abs(p[axis] - w.position) < 0.06) nearPts.push(p[1-axis]);
+    }
+    if (nearPts.length < 10) continue;
+    nearPts.sort((a,b) => a-b);
+    
+    for (let i = 0; i < nearPts.length - 1; i++) {
+      const gap = nearPts[i+1] - nearPts[i];
+      if (gap > 0.3) {
+        const gMid = (nearPts[i] + nearPts[i+1]) / 2;
+        let p1, p2, mid;
+        if (w.axis === 'x') {
+          p1 = rotPt([w.position, nearPts[i]], angleRad);
+          p2 = rotPt([w.position, nearPts[i+1]], angleRad);
+          mid = rotPt([w.position, gMid], angleRad);
+        } else {
+          p1 = rotPt([nearPts[i], w.position], angleRad);
+          p2 = rotPt([nearPts[i+1], w.position], angleRad);
+          mid = rotPt([gMid, w.position], angleRad);
+        }
+        const gtype = gap > 0.6 && gap < 1.3 ? 'door' : (gap > 0.3 && gap < 2.0 ? 'window' : 'opening');
+        gaps.push({ type: gtype, width: gap, start: p1, end: p2, mid });
+      }
+    }
+  }
+  return gaps;
+}
+
+function rotPt(p, angle) {
+  const c = Math.cos(angle), s = Math.sin(angle);
+  return [c*p[0] - s*p[1], s*p[0] + c*p[1]];
+}
+
+function analyzeMesh(triangles, meshSize) {
+  // Determine up axis (largest Y extent typically)
+  const nSlices = 20;
+  const yMin = meshBounds.min.y, yMax = meshBounds.max.y;
+  const yRange = yMax - yMin;
+  
+  // Collect cross-section points
+  const allXZ = [];
+  const slices = [];
+  
+  for (let i = 0; i < nSlices; i++) {
+    const y = yMin + yRange * (0.15 + 0.7 * i / (nSlices - 1));
+    const pts = sliceTrianglesAtY(triangles, y);
+    if (pts.length < 4) continue;
+    allXZ.push(...pts);
+    slices.push({ height: y, points: pts, n: pts.length });
+  }
+  
+  if (allXZ.length < 50) return { walls: [], room: null, gaps: [], slices, angle: 0, allXZ };
+  
+  // Manhattan analysis
+  const angle = findDominantAngle(allXZ);
+  const angleRad = angle * Math.PI / 180;
+  const rotated = allXZ.map(p => {
+    const c = Math.cos(-angleRad), s = Math.sin(-angleRad);
+    return [c*p[0] - s*p[1], s*p[0] + c*p[1]];
+  });
+  
+  const xWalls = findWalls(rotated, 0);
+  const zWalls = findWalls(rotated, 1);
+  let walls = mergeWalls([...xWalls, ...zWalls]);
+  
+  // Convert wall coords back to original space
+  for (const w of walls) {
+    if (w.axis === 'x') {
+      w.startPt = rotPt([w.position, w.start], angleRad);
+      w.endPt = rotPt([w.position, w.end], angleRad);
+    } else {
+      w.startPt = rotPt([w.start, w.position], angleRad);
+      w.endPt = rotPt([w.end, w.position], angleRad);
+    }
+  }
+  
+  // Room polygon from wall intersections
+  const xW = walls.filter(w => w.axis === 'x');
+  const zW = walls.filter(w => w.axis === 'z');
+  const intersections = [];
+  for (const xw of xW) {
+    for (const zw of zW) {
+      const ext = 0.5;
+      if (xw.start - ext <= zw.position && zw.position <= xw.end + ext &&
+          zw.start - ext <= xw.position && xw.position <= zw.end + ext) {
+        intersections.push(rotPt([xw.position, zw.position], angleRad));
+      }
+    }
+  }
+  
+  let room = null;
+  if (intersections.length >= 3) {
+    // Convex hull
+    const hull = convexHull2D(intersections);
+    if (hull.length >= 3) {
+      const area = polygonArea(hull);
+      const perimeter = polygonPerimeter(hull);
+      room = { exterior: [...hull, hull[0]], area, perimeter };
+    }
+  }
+  
+  // Gap detection
+  const gaps = detectGaps(walls, rotated, angle);
+  
+  return { walls, room, gaps, slices, angle, allXZ, rotated };
+}
+
+function convexHull2D(points) {
+  // Graham scan
+  if (points.length < 3) return points;
+  const pts = [...points].sort((a,b) => a[0]-b[0] || a[1]-b[1]);
+  const cross = (o,a,b) => (a[0]-o[0])*(b[1]-o[1]) - (a[1]-o[1])*(b[0]-o[0]);
+  const lower = [];
+  for (const p of pts) { while (lower.length >= 2 && cross(lower[lower.length-2], lower[lower.length-1], p) <= 0) lower.pop(); lower.push(p); }
+  const upper = [];
+  for (const p of pts.reverse()) { while (upper.length >= 2 && cross(upper[upper.length-2], upper[upper.length-1], p) <= 0) upper.pop(); upper.push(p); }
+  return lower.slice(0,-1).concat(upper.slice(0,-1));
+}
+
+function polygonArea(pts) {
+  let area = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const j = (i+1) % pts.length;
+    area += pts[i][0] * pts[j][1]; area -= pts[j][0] * pts[i][1];
+  }
+  return Math.abs(area) / 2;
+}
+
+function polygonPerimeter(pts) {
+  let p = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const j = (i+1) % pts.length;
+    p += Math.sqrt((pts[j][0]-pts[i][0])**2 + (pts[j][1]-pts[i][1])**2);
+  }
+  return p;
+}
+
+function buildWalls3D() {
+  wallLines3D.clear();
+  if (!analysisResult) return;
+  const wallH = meshBounds.max.y - meshBounds.min.y;
+  
+  for (const w of analysisResult.walls) {
+    const s = new THREE.Vector3(w.startPt[0], 0.02, w.startPt[1]);
+    const e = new THREE.Vector3(w.endPt[0], 0.02, w.endPt[1]);
+    
+    // Wall box
+    const dx = e.x-s.x, dz = e.z-s.z;
+    const len = Math.sqrt(dx*dx+dz*dz);
+    const geo = new THREE.BoxGeometry(len, wallH*0.95, 0.12);
+    const mat = new THREE.MeshPhongMaterial({ color: 0x00E5FF, transparent: true, opacity: 0.12, side: THREE.DoubleSide });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set((s.x+e.x)/2, wallH/2, (s.z+e.z)/2);
+    mesh.rotation.y = -Math.atan2(dz, dx);
+    wallLines3D.add(mesh);
+    
+    // Edge lines
+    wallLines3D.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([s, e]),
+      new THREE.LineBasicMaterial({ color: 0x00E5FF })));
+    const sT = s.clone(); sT.y = wallH; const eT = e.clone(); eT.y = wallH;
+    wallLines3D.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([sT, eT]),
+      new THREE.LineBasicMaterial({ color: 0x00E5FF, opacity: 0.3, transparent: true })));
+  }
+  
+  // Gaps
+  for (const g of analysisResult.gaps) {
+    const s = new THREE.Vector3(g.start[0], 0.02, g.start[1]);
+    const e = new THREE.Vector3(g.end[0], 0.02, g.end[1]);
+    const col = g.type === 'door' ? 0x2196F3 : 0x4CAF50;
+    wallLines3D.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([s, e]),
+      new THREE.LineBasicMaterial({ color: col, linewidth: 3 })));
+  }
+}
+
+function buildUI() {
+  const el = document.getElementById('layers');
+  el.innerHTML = '';
+  mk(el, 'mesh', 'Mesh', '#aabbcc', true, on => meshGroup.visible = on);
+  mk(el, 'grid', 'Grid', '#444', true, on => grid.visible = on);
+  if (analysisResult) {
+    mk(el, 'walls', `Walls (${analysisResult.walls.length})`, CC.wallLine, true, on => wallLines3D.visible = on);
+    const nD = analysisResult.gaps.filter(g=>g.type==='door').length;
+    const nW = analysisResult.gaps.filter(g=>g.type==='window').length;
+    if (analysisResult.gaps.length) mk(el, 'gaps', `Gaps (${nD}🚪 ${nW}🪟)`, CC.door, true, () => drawFP());
+  }
+}
+function mk(p, id, l, c, ch, fn) {
+  const d = document.createElement('div'); d.className = 'layer';
+  d.innerHTML = `<span class="dot" style="background:${c}"></span><input type="checkbox" id="t-${id}" ${ch?'checked':''}><label for="t-${id}">${l}</label>`;
+  d.querySelector('input').addEventListener('change', e => fn(e.target.checked)); p.appendChild(d);
+}
+
+function updateStats() {
+  if (!analysisResult) return;
+  const r = analysisResult;
+  let html = `<div class="row"><span>Walls</span><span class="val">${r.walls.length}</span></div>`;
+  html += `<div class="row"><span>Angle</span><span class="val">${r.angle}°</span></div>`;
+  html += `<div class="row"><span>Slices</span><span class="val">${r.slices.length} (${r.allXZ.length} pts)</span></div>`;
+  if (r.room) {
+    html += `<div class="row"><span>Area</span><span class="val">${r.room.area.toFixed(1)} m² (${(r.room.area*10.764).toFixed(0)} ft²)</span></div>`;
+    html += `<div class="row"><span>Perimeter</span><span class="val">${r.room.perimeter.toFixed(1)} m</span></div>`;
+  }
+  const doors = r.gaps.filter(g=>g.type==='door');
+  const wins = r.gaps.filter(g=>g.type==='window');
+  if (doors.length) html += `<div class="row"><span>Doors</span><span class="val">${doors.map(d=>d.width.toFixed(1)+'m').join(', ')}</span></div>`;
+  if (wins.length) html += `<div class="row"><span>Windows</span><span class="val">${wins.map(w=>w.width.toFixed(1)+'m').join(', ')}</span></div>`;
+  document.getElementById('stats').innerHTML = html;
+  if (r.room) document.getElementById('fp-info').textContent = `${r.room.area.toFixed(1)} m² | ${r.walls.length} walls | ${r.gaps.length} openings`;
+}
+
+// Floor plan canvas
+const fpC = document.getElementById('fpCanvas'), ctx = fpC.getContext('2d');
+function drawFP() {
+  if (!analysisResult) return;
+  const r = analysisResult;
+  const panel = document.getElementById('floorplan'), dpr = devicePixelRatio;
+  fpC.width = panel.clientWidth*dpr; fpC.height = panel.clientHeight*dpr;
+  fpC.style.width = panel.clientWidth+'px'; fpC.style.height = panel.clientHeight+'px';
+  const w = fpC.width, h = fpC.height;
+  ctx.clearRect(0,0,w,h); ctx.fillStyle = '#0a0a1e'; ctx.fillRect(0,0,w,h);
+
+  const allPts = [];
+  r.walls.forEach(w => { allPts.push(w.startPt, w.endPt); });
+  if (r.room?.exterior) r.room.exterior.forEach(p => allPts.push(p));
+  if (!allPts.length) return;
+
+  const xs = allPts.map(p=>p[0]), ys = allPts.map(p=>p[1]);
+  const [mnX,mxX,mnY,mxY] = [Math.min(...xs),Math.max(...xs),Math.min(...ys),Math.max(...ys)];
+  const pad = 80*dpr;
+  const scale = Math.min((w-2*pad)/(mxX-mnX||1),(h-2*pad)/(mxY-mnY||1));
+  const cx=w/2, cy=h/2, midX=(mnX+mxX)/2, midY=(mnY+mxY)/2;
+  const tx = p => [cx+(p[0]-midX)*scale, cy+(p[1]-midY)*scale];
+
+  // Point cloud
+  ctx.fillStyle = 'rgba(0, 229, 255, 0.03)';
+  const step = Math.max(1, Math.floor(r.allXZ.length / 5000));
+  for (let i = 0; i < r.allXZ.length; i += step) {
+    const [px, py] = tx(r.allXZ[i]);
+    ctx.fillRect(px-0.5*dpr, py-0.5*dpr, dpr, dpr);
+  }
+
+  // Room fill
+  if (r.room?.exterior) {
+    const ext = r.room.exterior.map(tx);
+    ctx.fillStyle = 'rgba(0, 229, 255, 0.03)';
+    ctx.beginPath(); ctx.moveTo(ext[0][0], ext[0][1]);
+    ext.slice(1).forEach(p => ctx.lineTo(p[0], p[1])); ctx.closePath(); ctx.fill();
+  }
+
+  // Walls
+  const WT = 0.12 * scale;
+  for (const wall of r.walls) {
+    const [x1,y1] = tx(wall.startPt); const [x2,y2] = tx(wall.endPt);
+    const dx = x2-x1, dy = y2-y1, len = Math.sqrt(dx*dx+dy*dy);
+    if (len < 1) continue;
+    const nx = -dy/len * WT/2, ny = dx/len * WT/2;
+    
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath(); ctx.moveTo(x1+nx+2*dpr, y1+ny+2*dpr); ctx.lineTo(x2+nx+2*dpr, y2+ny+2*dpr);
+    ctx.lineTo(x2-nx+2*dpr, y2-ny+2*dpr); ctx.lineTo(x1-nx+2*dpr, y1-ny+2*dpr); ctx.closePath(); ctx.fill();
+    
+    ctx.fillStyle = 'rgba(0, 229, 255, 0.25)';
+    ctx.beginPath(); ctx.moveTo(x1+nx, y1+ny); ctx.lineTo(x2+nx, y2+ny);
+    ctx.lineTo(x2-nx, y2-ny); ctx.lineTo(x1-nx, y1-ny); ctx.closePath(); ctx.fill();
+    
+    ctx.strokeStyle = CC.wallLine; ctx.lineWidth = 1.5*dpr; ctx.lineCap = 'round';
+    [[x1+nx,y1+ny,x2+nx,y2+ny],[x1-nx,y1-ny,x2-nx,y2-ny],[x1+nx,y1+ny,x1-nx,y1-ny],[x2+nx,y2+ny,x2-nx,y2-ny]].forEach(([a,b,c,d]) => {
+      ctx.beginPath(); ctx.moveTo(a,b); ctx.lineTo(c,d); ctx.stroke();
+    });
+  }
+
+  // Gaps
+  for (const gap of r.gaps) {
+    const [x1,y1] = tx(gap.start); const [x2,y2] = tx(gap.end);
+    const dx = x2-x1, dy = y2-y1, len = Math.sqrt(dx*dx+dy*dy);
+    if (len < 2) continue;
+    
+    if (gap.type === 'door') {
+      const nx = -dy/len * WT/2, ny = dx/len * WT/2;
+      ctx.fillStyle = '#0a0a1e';
+      ctx.beginPath(); ctx.moveTo(x1+nx*1.3, y1+ny*1.3); ctx.lineTo(x2+nx*1.3, y2+ny*1.3);
+      ctx.lineTo(x2-nx*1.3, y2-ny*1.3); ctx.lineTo(x1-nx*1.3, y1-ny*1.3); ctx.closePath(); ctx.fill();
+      
+      const angle = Math.atan2(dy, dx);
+      ctx.strokeStyle = CC.door; ctx.lineWidth = 1.5*dpr; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.arc(x1, y1, len, angle, angle-Math.PI/2, true); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x1, y1);
+      ctx.lineTo(x1+Math.cos(angle-Math.PI/2)*len, y1+Math.sin(angle-Math.PI/2)*len); ctx.stroke();
+    } else if (gap.type === 'window') {
+      const wnx = -dy/len * WT*0.7, wny = dx/len * WT*0.7;
+      ctx.strokeStyle = CC.window; ctx.lineWidth = 2.5*dpr;
+      ctx.beginPath(); ctx.moveTo(x1+wnx/2, y1+wny/2); ctx.lineTo(x2+wnx/2, y2+wny/2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x1-wnx/2, y1-wny/2); ctx.lineTo(x2-wnx/2, y2-wny/2); ctx.stroke();
+    }
+  }
+  ctx.setLineDash([]);
+
+  // Measurements
+  ctx.font = `bold ${10*dpr}px system-ui`;
+  for (const wall of r.walls) {
+    if (wall.length < 0.5) continue;
+    const [x1,y1] = tx(wall.startPt); const [x2,y2] = tx(wall.endPt);
+    const dx = x2-x1, dy = y2-y1, len = Math.sqrt(dx*dx+dy*dy);
+    if (len < 30*dpr) continue;
+    const nx = -dy/len, ny = dx/len, off = 24*dpr;
+    
+    ctx.strokeStyle = 'rgba(255,213,79,0.35)'; ctx.lineWidth = 0.8*dpr; ctx.setLineDash([3*dpr, 3*dpr]);
+    ctx.beginPath(); ctx.moveTo(x1+nx*off, y1+ny*off); ctx.lineTo(x2+nx*off, y2+ny*off); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.strokeStyle = 'rgba(255,213,79,0.5)'; ctx.lineWidth = 0.8*dpr;
+    [x1,x2].forEach((x,i) => { const y = i===0?y1:y2; ctx.beginPath(); ctx.moveTo(x+nx*(off-4*dpr),y+ny*(off-4*dpr)); ctx.lineTo(x+nx*(off+4*dpr),y+ny*(off+4*dpr)); ctx.stroke(); });
+    
+    ctx.fillStyle = CC.dim; ctx.save();
+    const mx = (x1+x2)/2+nx*off, my = (y1+y2)/2+ny*off;
+    ctx.translate(mx, my);
+    let angle = Math.atan2(dy, dx);
+    if (angle > Math.PI/2) angle -= Math.PI; if (angle < -Math.PI/2) angle += Math.PI;
+    ctx.rotate(angle); ctx.textAlign = 'center';
+    ctx.fillText(`${wall.length.toFixed(2)}m`, 0, -4*dpr);
+    ctx.restore();
+  }
+
+  // Room area
+  if (r.room) {
+    const ext = r.room.exterior.map(tx);
+    const rcx = ext.reduce((s,p) => s+p[0], 0)/ext.length;
+    const rcy = ext.reduce((s,p) => s+p[1], 0)/ext.length;
+    ctx.fillStyle = 'rgba(10,10,30,0.6)';
+    ctx.fillRect(rcx-60*dpr, rcy-16*dpr, 120*dpr, 38*dpr);
+    ctx.fillStyle = 'rgba(0, 229, 255, 0.9)'; ctx.font = `bold ${16*dpr}px system-ui`; ctx.textAlign = 'center';
+    ctx.fillText(`${r.room.area.toFixed(1)} m²`, rcx, rcy);
+    ctx.font = `${11*dpr}px system-ui`; ctx.fillStyle = 'rgba(0, 229, 255, 0.4)';
+    ctx.fillText(`(${(r.room.area*10.764).toFixed(0)} ft²)`, rcx, rcy+16*dpr);
+    ctx.textAlign = 'start';
+  }
+
+  // Scale
+  const bPx=1*scale, bY=h-20*dpr, bX=20*dpr;
+  ctx.strokeStyle='#555'; ctx.lineWidth=1.5*dpr;
+  ctx.beginPath(); ctx.moveTo(bX,bY); ctx.lineTo(bX+bPx,bY); ctx.stroke();
+  [bX, bX+bPx].forEach(x => { ctx.beginPath(); ctx.moveTo(x,bY-3*dpr); ctx.lineTo(x,bY+3*dpr); ctx.stroke(); });
+  ctx.fillStyle='#555'; ctx.font=`${9*dpr}px system-ui`; ctx.fillText('1m',bX+bPx/2-6*dpr,bY+14*dpr);
+}
+
+window.exportSVG = () => {
+  if (!analysisResult) return;
+  // Generate SVG from current analysis
+  const r = analysisResult;
+  const allPts = [];
+  r.walls.forEach(w => { allPts.push(w.startPt, w.endPt); });
+  if (!allPts.length) return;
+  
+  const xs = allPts.map(p=>p[0]), ys = allPts.map(p=>p[1]);
+  const mn = [Math.min(...xs), Math.min(...ys)];
+  const mx = [Math.max(...xs), Math.max(...ys)];
+  const scale = 120, margin = 80;
+  const w = (mx[0]-mn[0])*scale+2*margin, h = (mx[1]-mn[1])*scale+2*margin;
+  const tx = p => [(p[0]-mn[0])*scale+margin, (p[1]-mn[1])*scale+margin];
+  
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="white"/>`;
+  
+  const wt = 0.15*scale;
+  for (const wall of r.walls) {
+    const [x1,y1] = tx(wall.startPt); const [x2,y2] = tx(wall.endPt);
+    const dx=x2-x1, dy=y2-y1, len=Math.sqrt(dx*dx+dy*dy);
+    if (len<1) continue;
+    const nx=-dy/len*wt/2, ny=dx/len*wt/2;
+    svg += `<polygon points="${x1+nx},${y1+ny} ${x2+nx},${y2+ny} ${x2-nx},${y2-ny} ${x1-nx},${y1-ny}" fill="#2a2a2a"/>`;
+  }
+  
+  if (r.room) {
+    const ext = r.room.exterior.map(tx);
+    const rcx=ext.reduce((s,p)=>s+p[0],0)/ext.length, rcy=ext.reduce((s,p)=>s+p[1],0)/ext.length;
+    svg += `<text x="${rcx}" y="${rcy}" text-anchor="middle" font-size="20" font-weight="bold" fill="#333">${r.room.area.toFixed(1)} m²</text>`;
+  }
+  svg += '</svg>';
+  
+  const blob = new Blob([svg], { type: 'image/svg+xml' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'floorplan.svg'; a.click();
+};
+
+window.loadDemo = async () => {
+  progress('Loading demo scan...');
+  document.getElementById('loading').classList.remove('hidden');
+  try {
+    const resp = await fetch('../data/room_scan/2026_02_09_19_03_38/export_refined.obj');
+    const text = await resp.text();
+    const blob = new Blob([text], { type: 'text/plain' });
+    const file = new File([blob], 'export_refined.obj');
+    await loadOBJ(file);
+  } catch(e) {
+    progress('Demo not available — drop your own OBJ file');
+  }
+};
+
+// Slider
+document.getElementById('meshOpacity').addEventListener('input', e => { meshGroup.traverse(c => { if (c.isMesh) c.material.opacity = e.target.value/100; }); });
+document.getElementById('wireframe').addEventListener('change', e => { meshGroup.traverse(c => { if (c.isMesh) c.material.wireframe = e.target.checked; }); });
+document.getElementById('sliceY').addEventListener('input', e => {
+  if (!meshBounds || !currentMesh) return;
+  const t = e.target.value / 100;
+  const y = meshBounds.min.y + (meshBounds.max.y - meshBounds.min.y) * t;
+  
+  // Show slice plane
+  slicePlane.clear();
+  const sz = meshBounds.getSize(new THREE.Vector3());
+  const planeGeo = new THREE.PlaneGeometry(sz.x*1.2, sz.z*1.2);
+  planeGeo.rotateX(-Math.PI/2);
+  const planeMat = new THREE.MeshBasicMaterial({ color: 0xFF5722, transparent: true, opacity: 0.08, side: THREE.DoubleSide });
+  const pm = new THREE.Mesh(planeGeo, planeMat);
+  pm.position.y = y;
+  slicePlane.add(pm);
+  
+  // Slice lines
+  const pts = sliceTrianglesAtY(currentMesh, y);
+  if (pts.length >= 2) {
+    for (let i = 0; i < pts.length; i += 2) {
+      if (i+1 < pts.length) {
+        const a = new THREE.Vector3(pts[i][0], y, pts[i][1]);
+        const b = new THREE.Vector3(pts[i+1][0], y, pts[i+1][1]);
+        slicePlane.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([a,b]),
+          new THREE.LineBasicMaterial({ color: 0xFF5722 })));
+      }
+    }
+  }
+});
+
+(function a() { requestAnimationFrame(a); ctrl.update(); renderer.render(scene, camera); })();
+</script>
+</body>
+</html>
