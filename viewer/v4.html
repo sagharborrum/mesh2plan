@@ -6,8 +6,7 @@
 <title>mesh2plan v4 — Cross-Section Floor Plan</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #1a1a2e; color: #eee; font-family: system-ui, -apple-system, sans-serif; overflow: hidden; }
-
+body { background: #1a1a2e; color: #eee; font-family: system-ui, sans-serif; overflow: hidden; }
 #container { display: flex; width: 100vw; height: 100vh; }
 #view3d { flex: 1; position: relative; }
 #sidebar { width: 400px; display: flex; flex-direction: column; background: #0f0f24; border-left: 1px solid rgba(255,255,255,0.08); }
@@ -18,51 +17,33 @@ body { background: #1a1a2e; color: #eee; font-family: system-ui, -apple-system, 
 #slice-control { display: flex; align-items: center; gap: 8px; }
 #slice-control label { font-size: 11px; color: #666; }
 #slice-control input { width: 120px; }
-#slice-control span { font-size: 11px; color: #aaa; min-width: 50px; }
+#slice-control span { font-size: 11px; color: #aaa; min-width: 55px; }
 
-#stats { padding: 10px 16px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 11px; color: #555; line-height: 1.8; }
-#stats .row { display: flex; justify-content: space-between; }
-#stats .val { color: #999; }
-
-#controls {
-  position: absolute; top: 16px; left: 16px; z-index: 10;
-  background: rgba(15, 15, 36, 0.94); border-radius: 12px; padding: 14px 16px;
-  min-width: 210px; backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,0.08);
-}
-#controls h2 { font-size: 11px; margin-bottom: 10px; color: #555; text-transform: uppercase; letter-spacing: 1.5px; }
-
-.layer { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; cursor: pointer; font-size: 12px; }
-.layer input { cursor: pointer; width: 13px; height: 13px; accent-color: var(--c); }
-.layer label { cursor: pointer; flex: 1; }
+#controls { position: absolute; top: 16px; left: 16px; z-index: 10; background: rgba(15,15,36,0.94); border-radius: 12px; padding: 14px 16px; min-width: 220px; backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); max-height: calc(100vh - 80px); overflow-y: auto; }
+#controls h2 { font-size: 12px; margin-bottom: 10px; color: #555; text-transform: uppercase; letter-spacing: 1.5px; }
+.layer { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; cursor: pointer; font-size: 12px; }
+.layer input { cursor: pointer; } .layer label { cursor: pointer; flex: 1; }
 .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-
 .sep { border-top: 1px solid rgba(255,255,255,0.06); margin: 8px 0; }
-
 .srow { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; font-size: 11px; color: #888; }
-.srow label { min-width: 55px; }
-.srow input[type=range] { flex: 1; height: 3px; }
-
-#info {
-  position: absolute; bottom: 16px; left: 16px; z-index: 10;
-  background: rgba(15,15,36,0.92); border-radius: 8px; padding: 7px 12px;
-  font-size: 11px; color: #666; backdrop-filter: blur(8px);
-  border: 1px solid rgba(255,255,255,0.06);
-}
-
-/* Slice indicator line in 3D */
+.srow label { min-width: 55px; } .srow input[type=range] { flex: 1; }
+#info { position: absolute; bottom: 16px; left: 16px; z-index: 10; background: rgba(15,15,36,0.92); border-radius: 8px; padding: 7px 12px; font-size: 11px; color: #666; border: 1px solid rgba(255,255,255,0.06); }
+#loading { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 100; display: flex; align-items: center; justify-content: center; background: #1a1a2e; font-size: 14px; color: #666; }
+#loading.hidden { display: none; }
+#stats { padding: 10px 16px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 11px; color: #555; line-height: 1.8; }
+#stats .row { display: flex; justify-content: space-between; } #stats .val { color: #999; }
 </style>
 </head>
 <body>
-
+<div id="loading">Loading textured mesh...</div>
 <div id="container">
   <div id="view3d">
     <div id="controls">
       <h2>mesh2plan v4</h2>
       <div id="layers"></div>
       <div class="sep"></div>
-      <div class="srow"><label>Mesh</label><input type="range" id="meshOpacity" min="0" max="100" value="20"></div>
-      <div class="srow"><label>Planes</label><input type="range" id="planeOpacity" min="0" max="100" value="55"></div>
+      <div class="srow"><label>Mesh</label><input type="range" id="meshOpacity" min="0" max="100" value="55"></div>
+      <div class="srow"><label>Planes</label><input type="range" id="planeOpacity" min="0" max="100" value="40"></div>
       <div class="srow"><label>Wire</label><input type="checkbox" id="wireframe"></div>
     </div>
     <div id="info">Loading...</div>
@@ -84,352 +65,228 @@ body { background: #1a1a2e; color: #eee; font-family: system-ui, -apple-system, 
 </div>
 
 <script type="importmap">
-{ "imports": {
-  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
-}}
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" }}
 </script>
-
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
 
-const C = {
-  floor:   { h: 0x4CAF50, c: '#4CAF50' },
-  ceiling: { h: 0x2196F3, c: '#2196F3' },
-  wall:    { h: 0xFF9800, c: '#FF9800' },
-  unknown: { h: 0x9C27B0, c: '#9C27B0' },
-  slice:   { h: 0x00E5FF, c: '#00E5FF' },
+const DATA = '../data/room_scan/2026_02_09_19_03_38/';
+const CC = {
+  floor: { h: 0x4CAF50, c: '#4CAF50' }, ceiling: { h: 0x2196F3, c: '#2196F3' },
+  wall: { h: 0xFF9800, c: '#FF9800' }, unknown: { h: 0x9C27B0, c: '#9C27B0' },
+  slice: { h: 0x00E5FF, c: '#00E5FF' },
 };
 
 const container = document.getElementById('view3d');
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x1a1a2e);
-const camera = new THREE.PerspectiveCamera(60, 1, 0.01, 100);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x1a1a2e);
+const camera = new THREE.PerspectiveCamera(60, 1, 0.01, 200);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 container.appendChild(renderer.domElement);
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true; controls.dampingFactor = 0.05;
-
-scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-const dl = new THREE.DirectionalLight(0xffffff, 0.7);
-dl.position.set(3, 5, 4); scene.add(dl);
-
-const grid = new THREE.GridHelper(10, 40, 0x333355, 0x222244);
-scene.add(grid);
+const ctrl = new OrbitControls(camera, renderer.domElement);
+ctrl.enableDamping = true; ctrl.dampingFactor = 0.05;
+scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+const dl = new THREE.DirectionalLight(0xffffff, 0.6); dl.position.set(5,8,5); scene.add(dl);
+const grid = new THREE.GridHelper(20, 40, 0x333355, 0x222244); scene.add(grid);
 const meshGroup = new THREE.Group(); scene.add(meshGroup);
 const planeGroups = {};
 const slicePlane = new THREE.Group(); scene.add(slicePlane);
-const sliceLineGroup = new THREE.Group(); scene.add(sliceLineGroup);
-
-let data = null;
-let currentSliceIdx = 0;
+const sliceLines = new THREE.Group(); scene.add(sliceLines);
+let meshCenter = new THREE.Vector3(), floorYoff = 0, data = null, curSlice = 0;
 
 function resize() {
   const w = container.clientWidth, h = container.clientHeight;
-  camera.aspect = w / h; camera.updateProjectionMatrix();
+  camera.aspect = w/h; camera.updateProjectionMatrix();
   renderer.setSize(w, h); renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 }
-window.addEventListener('resize', () => { resize(); drawFP(); });
-resize();
+window.addEventListener('resize', () => { resize(); drawFP(); }); resize();
 
-const info = document.getElementById('info');
-
-new OBJLoader().load('../data/2026_01_13_14_47_59/export_refined.obj', obj => {
-  obj.traverse(c => { if (c.isMesh) {
-    c.material = new THREE.MeshPhongMaterial({
-      color: 0xcccccc, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false
-    });
-  }});
-  meshGroup.add(obj);
-  const box = new THREE.Box3().setFromObject(obj);
-  const center = box.getCenter(new THREE.Vector3());
-  const size = box.getSize(new THREE.Vector3());
-  const mx = Math.max(size.x, size.y, size.z);
-  controls.target.copy(center);
-  camera.position.copy(center.clone().add(new THREE.Vector3(mx, mx*0.6, mx)));
-  grid.position.y = box.min.y;
-  controls.update();
-  let vc = 0; obj.traverse(c => { if (c.isMesh) vc += c.geometry.attributes.position.count; });
-  info.textContent = `${vc.toLocaleString()} verts`;
-  load();
+const mtl = new MTLLoader(); mtl.setPath(DATA);
+mtl.load('textured_output.mtl', mats => {
+  mats.preload();
+  const ol = new OBJLoader(); ol.setMaterials(mats); ol.setPath(DATA);
+  ol.load('textured_output.obj', o => {
+    const box = new THREE.Box3().setFromObject(o);
+    meshCenter = box.getCenter(new THREE.Vector3());
+    o.position.sub(meshCenter);
+    const b2 = new THREE.Box3().setFromObject(o);
+    floorYoff = b2.min.y; o.position.y -= floorYoff;
+    const sz = b2.getSize(new THREE.Vector3());
+    o.traverse(c => { if (c.isMesh) { c.material.transparent = true; c.material.opacity = 0.55; c.material.side = THREE.DoubleSide; }});
+    meshGroup.add(o);
+    ctrl.target.set(0, sz.y/2, 0);
+    camera.position.set(sz.x*0.8, sz.y*0.8, sz.z*0.8);
+    ctrl.update();
+    let vc = 0; o.traverse(c => { if (c.isMesh) vc += c.geometry.attributes.position.count; });
+    document.getElementById('info').textContent = `${vc.toLocaleString()} verts | ${sz.x.toFixed(1)}×${sz.y.toFixed(1)}×${sz.z.toFixed(1)}m`;
+    document.getElementById('loading').classList.add('hidden');
+    load();
+  });
 });
 
+function xf(p) { const v = new THREE.Vector3(p[0],p[1],p[2]).sub(meshCenter); v.y -= floorYoff; return v; }
+
 async function load() {
-  const r = await fetch('../output/floorplan_v4.json');
+  const r = await fetch('../output/floorplan_room_v4.json');
   data = await r.json();
   buildPlanes(data.planes);
   buildUI(data.planes);
-  
-  // Setup slice slider
   const slider = document.getElementById('sliceSlider');
   slider.max = data.slices.length - 1;
-  // Find best slice
-  const bestIdx = data.slices.findIndex(s => s.is_best);
-  slider.value = bestIdx >= 0 ? bestIdx : Math.floor(data.slices.length / 2);
-  currentSliceIdx = parseInt(slider.value);
-  
-  slider.addEventListener('input', () => {
-    currentSliceIdx = parseInt(slider.value);
-    updateSlice();
-    drawFP();
-  });
-  
-  updateSlice();
-  drawFP();
-  updateStats();
+  const best = data.slices.findIndex(s => s.is_best);
+  slider.value = best >= 0 ? best : Math.floor(data.slices.length/2);
+  curSlice = parseInt(slider.value);
+  slider.addEventListener('input', () => { curSlice = parseInt(slider.value); updateSlice(); drawFP(); });
+  updateSlice(); drawFP(); updateStats();
 }
 
 function buildPlanes(planes) {
-  for (const p of planes) {
-    const type = p.type;
-    if (!planeGroups[type]) { planeGroups[type] = new THREE.Group(); scene.add(planeGroups[type]); }
-    const bnd = p.boundary;
-    if (!bnd || bnd.length < 3) continue;
-    const cent = new THREE.Vector3(...p.centroid);
-    const bu = new THREE.Vector3(...p.basis_u);
-    const bv = new THREE.Vector3(...p.basis_v);
-    const color = C[type]?.h || C.unknown.h;
-
-    const shape = new THREE.Shape();
-    const p2d = bnd.map(pt => {
-      const v = new THREE.Vector3(...pt).sub(cent);
-      return new THREE.Vector2(v.dot(bu), v.dot(bv));
-    });
-    shape.moveTo(p2d[0].x, p2d[0].y);
-    p2d.slice(1).forEach(pt => shape.lineTo(pt.x, pt.y));
-
-    const geom = new THREE.ShapeGeometry(shape);
-    const pos = geom.attributes.position;
+  for (const pl of planes) {
+    const t = pl.type;
+    if (!planeGroups[t]) { planeGroups[t] = new THREE.Group(); scene.add(planeGroups[t]); }
+    const bnd = pl.boundary; if (!bnd || bnd.length < 3) continue;
+    const ct = new THREE.Vector3(...pl.centroid);
+    const bu = new THREE.Vector3(...pl.basis_u), bv = new THREE.Vector3(...pl.basis_v);
+    const col = CC[t]?.h || CC.unknown.h;
+    const sh = new THREE.Shape();
+    const p2 = bnd.map(p => { const v = new THREE.Vector3(...p).sub(ct); return new THREE.Vector2(v.dot(bu), v.dot(bv)); });
+    sh.moveTo(p2[0].x, p2[0].y); p2.slice(1).forEach(p => sh.lineTo(p.x, p.y));
+    const g = new THREE.ShapeGeometry(sh);
+    const pos = g.attributes.position;
     for (let i = 0; i < pos.count; i++) {
       const u = pos.getX(i), v = pos.getY(i);
-      const pt = cent.clone().add(bu.clone().multiplyScalar(u)).add(bv.clone().multiplyScalar(v));
-      pos.setXYZ(i, pt.x, pt.y, pt.z);
+      const p = ct.clone().add(bu.clone().multiplyScalar(u)).add(bv.clone().multiplyScalar(v));
+      const tp = xf(p.toArray()); pos.setXYZ(i, tp.x, tp.y, tp.z);
     }
-    geom.computeVertexNormals();
-    planeGroups[type].add(new THREE.Mesh(geom, new THREE.MeshPhongMaterial({
-      color, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false,
-    })));
-    planeGroups[type].add(new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints(bnd.map(pt => new THREE.Vector3(...pt))),
-      new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.7 })
-    ));
+    g.computeVertexNormals();
+    planeGroups[t].add(new THREE.Mesh(g, new THREE.MeshPhongMaterial({ color: col, transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false })));
+    planeGroups[t].add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(bnd.map(p => xf(p))), new THREE.LineBasicMaterial({ color: col, opacity: 0.6, transparent: true })));
   }
 }
 
 function updateSlice() {
   if (!data) return;
-  const s = data.slices[currentSliceIdx];
-  if (!s) return;
-  
+  const s = data.slices[curSlice]; if (!s) return;
+  const yWorld = s.height - meshCenter.y - floorYoff;
   document.getElementById('sliceLabel').textContent = `y=${s.height.toFixed(2)}m`;
-  
-  // Update slice plane indicator in 3D
+
   slicePlane.clear();
-  const bounds = data.mesh;
-  const bmin = bounds.bounds_min, bmax = bounds.bounds_max;
-  const w = bmax[0] - bmin[0], d = bmax[2] - bmin[2];
-  const planeGeom = new THREE.PlaneGeometry(w * 1.5, d * 1.5);
-  planeGeom.rotateX(-Math.PI / 2);
-  const planeMesh = new THREE.Mesh(planeGeom, new THREE.MeshBasicMaterial({
-    color: C.slice.h, transparent: true, opacity: 0.08, side: THREE.DoubleSide, depthWrite: false,
-  }));
-  planeMesh.position.set((bmin[0]+bmax[0])/2, s.height, (bmin[2]+bmax[2])/2);
-  slicePlane.add(planeMesh);
-  
-  // Add edge
-  const edgeGeom = new THREE.EdgesGeometry(planeGeom);
-  const edges = new THREE.LineSegments(edgeGeom, new THREE.LineBasicMaterial({ color: C.slice.h, opacity: 0.3, transparent: true }));
-  edges.position.copy(planeMesh.position);
-  slicePlane.add(edges);
-  
-  // Draw cross-section lines in 3D
-  sliceLineGroup.clear();
+  const bmin = data.mesh.bounds_min, bmax = data.mesh.bounds_max;
+  const w = bmax[0]-bmin[0], d = bmax[2]-bmin[2];
+  const pg = new THREE.PlaneGeometry(w*1.3, d*1.3);
+  pg.rotateX(-Math.PI/2);
+  const pm = new THREE.Mesh(pg, new THREE.MeshBasicMaterial({ color: CC.slice.h, transparent: true, opacity: 0.06, side: THREE.DoubleSide, depthWrite: false }));
+  pm.position.set(0, yWorld, 0); // approximate
+  slicePlane.add(pm);
+
+  sliceLines.clear();
   for (const path of s.paths) {
     if (path.points.length < 2) continue;
-    const pts = path.points.map(p => new THREE.Vector3(p[0], s.height, p[1]));
-    const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
-    sliceLineGroup.add(new THREE.Line(lineGeom, new THREE.LineBasicMaterial({
-      color: C.slice.h, linewidth: 2,
-    })));
+    const pts = path.points.map(p => new THREE.Vector3(p[0] - meshCenter.x, yWorld, p[1] - meshCenter.z));
+    sliceLines.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: CC.slice.h })));
   }
 }
 
 function buildUI(planes) {
   const el = document.getElementById('layers');
-  mkToggle(el, 'mesh', 'OBJ Mesh', '#ccc', true, on => meshGroup.visible = on);
-  mkToggle(el, 'grid', 'Grid', '#333', true, on => grid.visible = on);
-  mkToggle(el, 'slice', 'Slice plane', C.slice.c, true, on => { slicePlane.visible = on; sliceLineGroup.visible = on; });
-  
-  const counts = {};
-  planes.forEach(p => counts[p.type] = (counts[p.type]||0) + 1);
-  for (const [type, group] of Object.entries(planeGroups)) {
-    mkToggle(el, type, `${type} (${counts[type]||0})`, C[type]?.c||'#999', true, on => group.visible = on);
-  }
+  mk(el, 'mesh', 'Textured Mesh', '#ccc', true, on => meshGroup.visible = on);
+  mk(el, 'grid', 'Grid', '#444', true, on => grid.visible = on);
+  mk(el, 'slice', 'Slice plane', CC.slice.c, true, on => { slicePlane.visible = on; sliceLines.visible = on; });
+  const cnts = {}; planes.forEach(p => cnts[p.type] = (cnts[p.type]||0)+1);
+  for (const [t,g] of Object.entries(planeGroups)) mk(el, t, `${t} (${cnts[t]||0})`, CC[t]?.c||'#999', true, on => g.visible = on);
 }
-
-function mkToggle(parent, id, label, color, checked, fn) {
-  const d = document.createElement('div');
-  d.className = 'layer';
-  d.innerHTML = `<span class="dot" style="background:${color}"></span>
-    <input type="checkbox" id="t-${id}" ${checked?'checked':''} style="--c:${color}">
-    <label for="t-${id}">${label}</label>`;
-  d.querySelector('input').addEventListener('change', e => fn(e.target.checked));
-  parent.appendChild(d);
+function mk(p, id, l, c, ch, fn) {
+  const d = document.createElement('div'); d.className = 'layer';
+  d.innerHTML = `<span class="dot" style="background:${c}"></span><input type="checkbox" id="t-${id}" ${ch?'checked':''}><label for="t-${id}">${l}</label>`;
+  d.querySelector('input').addEventListener('change', e => fn(e.target.checked)); p.appendChild(d);
 }
-
 function updateStats() {
-  const m = data.mesh;
-  const planes = data.planes;
-  const walls = planes.filter(p => p.type === 'wall');
-  const el = document.getElementById('stats');
-  el.innerHTML = `
+  const m = data.mesh, p = data.planes;
+  document.getElementById('stats').innerHTML = `
     <div class="row"><span>Mesh</span><span class="val">${m.vertices.toLocaleString()}v / ${m.faces.toLocaleString()}f</span></div>
-    <div class="row"><span>Area</span><span class="val">${m.total_area.toFixed(2)} m²</span></div>
-    <div class="row"><span>Planes</span><span class="val">${planes.length} (${walls.length} walls)</span></div>
+    <div class="row"><span>Area</span><span class="val">${m.total_area.toFixed(1)} m²</span></div>
+    <div class="row"><span>Planes</span><span class="val">${p.length}</span></div>
     <div class="row"><span>Slices</span><span class="val">${data.slices.length}</span></div>`;
 }
 
-// Sliders
-document.getElementById('meshOpacity').addEventListener('input', e => {
-  meshGroup.traverse(c => { if (c.isMesh) c.material.opacity = e.target.value/100; });
-});
-document.getElementById('planeOpacity').addEventListener('input', e => {
-  const v = e.target.value/100;
-  Object.values(planeGroups).forEach(g => g.traverse(c => { if (c.isMesh) c.material.opacity = v; }));
-});
-document.getElementById('wireframe').addEventListener('change', e => {
-  meshGroup.traverse(c => { if (c.isMesh) c.material.wireframe = e.target.checked; });
-});
-
-// ── Floor Plan Canvas ──
-const fpCanvas = document.getElementById('fpCanvas');
-const ctx = fpCanvas.getContext('2d');
-
+const fpC = document.getElementById('fpCanvas'), ctx = fpC.getContext('2d');
 function drawFP() {
   if (!data) return;
-  const panel = document.getElementById('floorplan');
-  const dpr = devicePixelRatio;
-  fpCanvas.width = panel.clientWidth * dpr;
-  fpCanvas.height = panel.clientHeight * dpr;
-  fpCanvas.style.width = panel.clientWidth + 'px';
-  fpCanvas.style.height = panel.clientHeight + 'px';
-  
-  const w = fpCanvas.width, h = fpCanvas.height;
-  ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = '#0a0a1e';
-  ctx.fillRect(0, 0, w, h);
-  
-  const s = data.slices[currentSliceIdx];
+  const panel = document.getElementById('floorplan'), dpr = devicePixelRatio;
+  fpC.width = panel.clientWidth*dpr; fpC.height = panel.clientHeight*dpr;
+  fpC.style.width = panel.clientWidth+'px'; fpC.style.height = panel.clientHeight+'px';
+  const w = fpC.width, h = fpC.height;
+  ctx.clearRect(0,0,w,h); ctx.fillStyle = '#0a0a1e'; ctx.fillRect(0,0,w,h);
+
+  const s = data.slices[curSlice];
   if (!s || !s.paths.length) {
-    ctx.fillStyle = '#444';
-    ctx.font = `${12*dpr}px system-ui`;
-    ctx.textAlign = 'center';
-    ctx.fillText('No cross-section at this height', w/2, h/2);
-    return;
+    ctx.fillStyle = '#444'; ctx.font = `${12*dpr}px system-ui`; ctx.textAlign = 'center';
+    ctx.fillText('No cross-section', w/2, h/2); return;
   }
-  
-  // Gather all points for bounds
-  const allPts = [];
-  s.paths.forEach(p => p.points.forEach(pt => allPts.push(pt)));
+
+  const allPts = []; s.paths.forEach(p => p.points.forEach(pt => allPts.push(pt)));
   if (!allPts.length) return;
-  
-  const xs = allPts.map(p => p[0]), ys = allPts.map(p => p[1]);
-  const minX = Math.min(...xs), maxX = Math.max(...xs);
-  const minY = Math.min(...ys), maxY = Math.max(...ys);
-  
-  const pad = 60 * dpr;
-  const sx = (w - 2*pad) / (maxX - minX || 1);
-  const sy = (h - 2*pad) / (maxY - minY || 1);
-  const scale = Math.min(sx, sy);
-  const cx = w/2, cy = h/2;
-  const midX = (minX+maxX)/2, midY = (minY+maxY)/2;
-  const tx = p => [cx + (p[0]-midX)*scale, cy + (p[1]-midY)*scale];
-  
-  // Draw grid
-  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
-  ctx.lineWidth = 0.5 * dpr;
-  const gridStep = 0.1; // 10cm
-  for (let x = Math.floor(minX/gridStep)*gridStep; x <= maxX; x += gridStep) {
-    const [px] = tx([x, 0]);
-    ctx.beginPath(); ctx.moveTo(px, pad); ctx.lineTo(px, h-pad); ctx.stroke();
+
+  const xs = allPts.map(p=>p[0]), ys = allPts.map(p=>p[1]);
+  const [mnX,mxX,mnY,mxY] = [Math.min(...xs),Math.max(...xs),Math.min(...ys),Math.max(...ys)];
+  const pad = 60*dpr;
+  const scale = Math.min((w-2*pad)/(mxX-mnX||1),(h-2*pad)/(mxY-mnY||1));
+  const cx=w/2, cy=h/2, midX=(mnX+mxX)/2, midY=(mnY+mxY)/2;
+  const tx = p => [cx+(p[0]-midX)*scale, cy+(p[1]-midY)*scale];
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 0.5*dpr;
+  for (let x = Math.floor(mnX); x <= mxX; x += 0.5) {
+    const [px] = tx([x,0]); ctx.beginPath(); ctx.moveTo(px, pad); ctx.lineTo(px, h-pad); ctx.stroke();
   }
-  for (let y = Math.floor(minY/gridStep)*gridStep; y <= maxY; y += gridStep) {
-    const [, py] = tx([0, y]);
-    ctx.beginPath(); ctx.moveTo(pad, py); ctx.lineTo(w-pad, py); ctx.stroke();
+  for (let y = Math.floor(mnY); y <= mxY; y += 0.5) {
+    const [,py] = tx([0,y]); ctx.beginPath(); ctx.moveTo(pad, py); ctx.lineTo(w-pad, py); ctx.stroke();
   }
-  
-  // Draw cross-section paths
-  ctx.strokeStyle = C.slice.c;
-  ctx.lineWidth = 2.5 * dpr;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.shadowColor = C.slice.c;
-  ctx.shadowBlur = 6 * dpr;
-  
+
+  // Paths
+  ctx.strokeStyle = CC.slice.c; ctx.lineWidth = 2.5*dpr; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.shadowColor = CC.slice.c; ctx.shadowBlur = 6*dpr;
   for (const path of s.paths) {
     if (path.points.length < 2) continue;
     const pts = path.points.map(tx);
-    ctx.beginPath();
-    ctx.moveTo(pts[0][0], pts[0][1]);
-    for (let i = 1; i < pts.length; i++) {
-      ctx.lineTo(pts[i][0], pts[i][1]);
-    }
+    ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
     if (path.closed) ctx.closePath();
     ctx.stroke();
   }
   ctx.shadowBlur = 0;
-  
-  // Draw polygons if any
-  for (const poly of (s.polygons || [])) {
+
+  // Polygons
+  for (const poly of (s.polygons||[])) {
     if (!poly.exterior.length) continue;
     const pts = poly.exterior.map(tx);
-    ctx.fillStyle = 'rgba(0, 229, 255, 0.06)';
-    ctx.beginPath();
-    ctx.moveTo(pts[0][0], pts[0][1]);
-    pts.slice(1).forEach(p => ctx.lineTo(p[0], p[1]));
-    ctx.closePath();
-    ctx.fill();
-    
-    // Area label
-    const centroid = pts.reduce((a, p) => [a[0]+p[0], a[1]+p[1]], [0,0]);
-    centroid[0] /= pts.length; centroid[1] /= pts.length;
+    ctx.fillStyle = 'rgba(0,229,255,0.06)';
+    ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]);
+    pts.slice(1).forEach(p => ctx.lineTo(p[0],p[1])); ctx.closePath(); ctx.fill();
     if (poly.area > 0.01) {
-      ctx.fillStyle = 'rgba(0, 229, 255, 0.5)';
-      ctx.font = `${10*dpr}px system-ui`;
-      ctx.textAlign = 'center';
-      ctx.fillText(`${poly.area.toFixed(2)} m²`, centroid[0], centroid[1]);
-      ctx.textAlign = 'start';
+      const cen = pts.reduce((a,p)=>[a[0]+p[0],a[1]+p[1]],[0,0]);
+      cen[0]/=pts.length; cen[1]/=pts.length;
+      ctx.fillStyle = 'rgba(0,229,255,0.5)'; ctx.font = `${10*dpr}px system-ui`; ctx.textAlign = 'center';
+      ctx.fillText(`${poly.area.toFixed(2)}m²`, cen[0], cen[1]); ctx.textAlign = 'start';
     }
   }
-  
-  // Scale bar
-  const barLen = 0.5; // 50cm
-  const barPx = barLen * scale;
-  const barY = h - 20*dpr, barX = 20*dpr;
-  ctx.strokeStyle = '#555'; ctx.lineWidth = 1.5*dpr; ctx.setLineDash([]);
-  ctx.beginPath(); ctx.moveTo(barX, barY); ctx.lineTo(barX+barPx, barY); ctx.stroke();
-  [barX, barX+barPx].forEach(x => {
-    ctx.beginPath(); ctx.moveTo(x, barY-3*dpr); ctx.lineTo(x, barY+3*dpr); ctx.stroke();
-  });
-  ctx.fillStyle = '#555'; ctx.font = `${9*dpr}px system-ui`;
-  ctx.fillText('50cm', barX + barPx/2 - 10*dpr, barY + 12*dpr);
-  
-  // Height label
-  ctx.fillStyle = '#666'; ctx.font = `${10*dpr}px system-ui`;
-  ctx.textAlign = 'right';
-  ctx.fillText(`y = ${s.height.toFixed(3)}m`, w - 16*dpr, 50*dpr);
-  ctx.fillText(`${s.paths.length} paths, ${allPts.length} pts`, w - 16*dpr, 64*dpr);
-  ctx.textAlign = 'start';
+
+  // Scale
+  const bPx=1*scale, bY=h-20*dpr, bX=20*dpr;
+  ctx.strokeStyle='#555'; ctx.lineWidth=1.5*dpr;
+  ctx.beginPath(); ctx.moveTo(bX,bY); ctx.lineTo(bX+bPx,bY); ctx.stroke();
+  ctx.fillStyle='#555'; ctx.font=`${9*dpr}px system-ui`; ctx.fillText('1m',bX+bPx/2-6*dpr,bY+14*dpr);
+  ctx.fillStyle='#666'; ctx.font=`${10*dpr}px system-ui`; ctx.textAlign='right';
+  ctx.fillText(`${s.paths.length} paths, ${allPts.length} pts`, w-16*dpr, 50*dpr); ctx.textAlign='start';
 }
 
-function animate() {
-  requestAnimationFrame(animate);
-  controls.update();
-  renderer.render(scene, camera);
-}
-animate();
+document.getElementById('meshOpacity').addEventListener('input', e => { meshGroup.traverse(c => { if (c.isMesh) c.material.opacity = e.target.value/100; }); });
+document.getElementById('planeOpacity').addEventListener('input', e => { const v=e.target.value/100; Object.values(planeGroups).forEach(g => g.traverse(c => { if (c.isMesh) c.material.opacity = v; })); });
+document.getElementById('wireframe').addEventListener('change', e => { meshGroup.traverse(c => { if (c.isMesh) c.material.wireframe = e.target.checked; }); });
+
+(function a() { requestAnimationFrame(a); ctrl.update(); renderer.render(scene, camera); })();
 </script>
 </body>
 </html>

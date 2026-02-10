@@ -3,517 +3,258 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>mesh2plan v3 — Geometry + Floor Plan</title>
+<title>mesh2plan v3 — Wall Thickness + Room Detection</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { background: #1a1a2e; color: #eee; font-family: system-ui, sans-serif; overflow: hidden; }
-
 #container { display: flex; width: 100vw; height: 100vh; }
 #view3d { flex: 1; position: relative; }
-#sidebar { width: 380px; display: flex; flex-direction: column; background: #12122a; border-left: 1px solid rgba(255,255,255,0.1); }
+#sidebar { width: 400px; display: flex; flex-direction: column; background: #0f0f24; border-left: 1px solid rgba(255,255,255,0.08); }
 #floorplan { flex: 1; position: relative; }
 #floorplan canvas { width: 100%; height: 100%; }
 #fp-label { position: absolute; top: 12px; left: 12px; font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 1px; }
 
-#stats {
-  padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.08);
-  font-size: 11px; color: #666; line-height: 1.6;
-}
-#stats .stat-row { display: flex; justify-content: space-between; }
-#stats .stat-val { color: #aaa; }
-
 #controls {
   position: absolute; top: 16px; left: 16px; z-index: 10;
-  background: rgba(20, 20, 40, 0.92); border-radius: 12px; padding: 14px 16px;
-  min-width: 220px; backdrop-filter: blur(10px);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(15, 15, 36, 0.94); border-radius: 12px; padding: 14px 16px;
+  min-width: 220px; backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08);
   max-height: calc(100vh - 80px); overflow-y: auto;
 }
-#controls h2 { font-size: 12px; margin-bottom: 10px; color: #666; text-transform: uppercase; letter-spacing: 1px; }
-
+#controls h2 { font-size: 12px; margin-bottom: 10px; color: #555; text-transform: uppercase; letter-spacing: 1.5px; }
 .layer { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; cursor: pointer; font-size: 12px; }
-.layer input { cursor: pointer; width: 14px; height: 14px; }
-.layer label { cursor: pointer; flex: 1; }
-.color-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-
-.sep { border-top: 1px solid rgba(255,255,255,0.08); margin: 8px 0; }
-
-.slider-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-size: 11px; }
-.slider-row label { min-width: 65px; color: #888; }
-.slider-row input[type=range] { flex: 1; height: 3px; }
-
-#info {
-  position: absolute; bottom: 16px; left: 16px; z-index: 10;
-  background: rgba(20, 20, 40, 0.9); border-radius: 8px; padding: 8px 12px;
-  font-size: 11px; color: #777; backdrop-filter: blur(8px);
-  border: 1px solid rgba(255,255,255,0.08);
-}
+.layer input { cursor: pointer; } .layer label { cursor: pointer; flex: 1; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.sep { border-top: 1px solid rgba(255,255,255,0.06); margin: 8px 0; }
+.srow { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; font-size: 11px; color: #888; }
+.srow label { min-width: 55px; } .srow input[type=range] { flex: 1; }
+#info { position: absolute; bottom: 16px; left: 16px; z-index: 10; background: rgba(15,15,36,0.92); border-radius: 8px; padding: 7px 12px; font-size: 11px; color: #666; border: 1px solid rgba(255,255,255,0.06); }
+#loading { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 100; display: flex; align-items: center; justify-content: center; background: #1a1a2e; font-size: 14px; color: #666; }
+#loading.hidden { display: none; }
+#stats { padding: 10px 16px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 11px; color: #555; line-height: 1.8; }
+#stats .row { display: flex; justify-content: space-between; } #stats .val { color: #999; }
 </style>
 </head>
 <body>
-
+<div id="loading">Loading textured mesh...</div>
 <div id="container">
   <div id="view3d">
     <div id="controls">
       <h2>mesh2plan v3</h2>
       <div id="layers"></div>
       <div class="sep"></div>
-      <div class="slider-row">
-        <label>Mesh</label>
-        <input type="range" id="meshOpacity" min="0" max="100" value="25">
-      </div>
-      <div class="slider-row">
-        <label>Planes</label>
-        <input type="range" id="planeOpacity" min="0" max="100" value="60">
-      </div>
-      <div class="slider-row">
-        <label>Wireframe</label>
-        <input type="checkbox" id="wireframe">
-      </div>
+      <div class="srow"><label>Mesh</label><input type="range" id="meshOpacity" min="0" max="100" value="65"></div>
+      <div class="srow"><label>Planes</label><input type="range" id="planeOpacity" min="0" max="100" value="40"></div>
+      <div class="srow"><label>Wire</label><input type="checkbox" id="wireframe"></div>
     </div>
     <div id="info">Loading...</div>
   </div>
   <div id="sidebar">
-    <div id="floorplan">
-      <div id="fp-label">Floor Plan</div>
-      <canvas id="fpCanvas"></canvas>
-    </div>
+    <div id="floorplan"><div id="fp-label">Floor Plan</div><canvas id="fpCanvas"></canvas></div>
     <div id="stats"></div>
   </div>
 </div>
 
 <script type="importmap">
-{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
-  }
-}
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" }}
 </script>
-
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
 
-const COLORS = {
-  floor:   { hex: 0x4CAF50, css: '#4CAF50' },
-  ceiling: { hex: 0x2196F3, css: '#2196F3' },
-  wall:    { hex: 0xFF9800, css: '#FF9800' },
-  unknown: { hex: 0x9C27B0, css: '#9C27B0' },
-  door:    { hex: 0xE91E63, css: '#E91E63' },
-  window:  { hex: 0x00BCD4, css: '#00BCD4' },
-  room:    { hex: 0x66BB6A, css: '#66BB6A' },
+const DATA = '../data/room_scan/2026_02_09_19_03_38/';
+const C = {
+  floor: { h: 0x4CAF50, c: '#4CAF50' }, ceiling: { h: 0x2196F3, c: '#2196F3' },
+  wall: { h: 0xFF9800, c: '#FF9800' }, unknown: { h: 0x9C27B0, c: '#9C27B0' },
+  door: { h: 0xE91E63, c: '#E91E63' }, window: { h: 0x00BCD4, c: '#00BCD4' },
+  room: { h: 0x66BB6A, c: '#66BB6A' },
 };
 
 const container = document.getElementById('view3d');
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x1a1a2e);
-
-const camera = new THREE.PerspectiveCamera(60, 1, 0.01, 100);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x1a1a2e);
+const camera = new THREE.PerspectiveCamera(60, 1, 0.01, 200);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 container.appendChild(renderer.domElement);
-
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.dampingFactor = 0.05;
-
-scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-const dir = new THREE.DirectionalLight(0xffffff, 0.8);
-dir.position.set(3, 5, 4);
-scene.add(dir);
-
-const grid = new THREE.GridHelper(10, 40, 0x333355, 0x222244);
-scene.add(grid);
-
-const meshGroup = new THREE.Group();
-scene.add(meshGroup);
+const ctrl = new OrbitControls(camera, renderer.domElement);
+ctrl.enableDamping = true; ctrl.dampingFactor = 0.05;
+scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+const dl = new THREE.DirectionalLight(0xffffff, 0.6); dl.position.set(5,8,5); scene.add(dl);
+const grid = new THREE.GridHelper(20, 40, 0x333355, 0x222244); scene.add(grid);
+const meshGroup = new THREE.Group(); scene.add(meshGroup);
 const planeGroups = {};
-const openingGroup = new THREE.Group();
-scene.add(openingGroup);
-
-let planesData = null;
+const openingGroup = new THREE.Group(); scene.add(openingGroup);
+let meshCenter = new THREE.Vector3(), floorYoff = 0, pData = null;
 
 function resize() {
   const w = container.clientWidth, h = container.clientHeight;
-  camera.aspect = w / h;
-  camera.updateProjectionMatrix();
-  renderer.setSize(w, h);
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  camera.aspect = w/h; camera.updateProjectionMatrix();
+  renderer.setSize(w, h); renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 }
-window.addEventListener('resize', () => { resize(); resizeFP(); });
-resize();
+window.addEventListener('resize', () => { resize(); drawFP(); }); resize();
 
-const info = document.getElementById('info');
-
-new OBJLoader().load('../data/2026_01_13_14_47_59/export_refined.obj', (obj) => {
-  obj.traverse(child => {
-    if (child.isMesh) {
-      child.material = new THREE.MeshPhongMaterial({
-        color: 0xcccccc, transparent: true, opacity: 0.25,
-        side: THREE.DoubleSide, depthWrite: false,
-      });
-    }
+const mtl = new MTLLoader(); mtl.setPath(DATA);
+mtl.load('textured_output.mtl', mats => {
+  mats.preload();
+  const ol = new OBJLoader(); ol.setMaterials(mats); ol.setPath(DATA);
+  ol.load('textured_output.obj', o => {
+    const box = new THREE.Box3().setFromObject(o);
+    meshCenter = box.getCenter(new THREE.Vector3());
+    o.position.sub(meshCenter);
+    const b2 = new THREE.Box3().setFromObject(o);
+    floorYoff = b2.min.y; o.position.y -= floorYoff;
+    const sz = b2.getSize(new THREE.Vector3());
+    o.traverse(c => { if (c.isMesh) { c.material.transparent = true; c.material.opacity = 0.65; c.material.side = THREE.DoubleSide; }});
+    meshGroup.add(o);
+    ctrl.target.set(0, sz.y/2, 0);
+    camera.position.set(sz.x*0.8, sz.y*0.8, sz.z*0.8);
+    ctrl.update();
+    let vc = 0; o.traverse(c => { if (c.isMesh) vc += c.geometry.attributes.position.count; });
+    document.getElementById('info').textContent = `${vc.toLocaleString()} verts | ${sz.x.toFixed(1)}×${sz.y.toFixed(1)}×${sz.z.toFixed(1)}m`;
+    document.getElementById('loading').classList.add('hidden');
+    loadP();
   });
-  meshGroup.add(obj);
-
-  const box = new THREE.Box3().setFromObject(obj);
-  const center = box.getCenter(new THREE.Vector3());
-  const size = box.getSize(new THREE.Vector3());
-  const maxDim = Math.max(size.x, size.y, size.z);
-
-  controls.target.copy(center);
-  camera.position.copy(center.clone().add(new THREE.Vector3(maxDim, maxDim * 0.6, maxDim)));
-  grid.position.y = box.min.y;
-  controls.update();
-
-  let vc = 0;
-  obj.traverse(c => { if (c.isMesh) vc += c.geometry.attributes.position.count; });
-  info.textContent = `${vc.toLocaleString()} verts | Orbit: drag | Zoom: scroll`;
-
-  loadPlanes();
 });
 
-async function loadPlanes() {
-  const resp = await fetch('../output/planes_v3.json');
-  planesData = await resp.json();
-  buildGeometry(planesData.planes);
-  buildUI(planesData.planes);
-  drawFloorPlan(planesData);
-  updateStats(planesData);
+function xf(p) { const v = new THREE.Vector3(p[0],p[1],p[2]).sub(meshCenter); v.y -= floorYoff; return v; }
+
+async function loadP() {
+  const r = await fetch('../output/planes_room_v3.json');
+  pData = await r.json();
+  buildGeo(pData.planes); buildUI(pData.planes); drawFP(); updateStats();
 }
 
-function buildGeometry(planes) {
-  for (const plane of planes) {
-    const type = plane.type;
-    if (!planeGroups[type]) {
-      planeGroups[type] = new THREE.Group();
-      scene.add(planeGroups[type]);
-    }
+function buildGeo(planes) {
+  for (const pl of planes) {
+    const t = pl.type;
+    if (!planeGroups[t]) { planeGroups[t] = new THREE.Group(); scene.add(planeGroups[t]); }
+    const bnd = pl.boundary; if (!bnd || bnd.length < 3) continue;
+    const ct = new THREE.Vector3(...pl.centroid);
+    const bu = new THREE.Vector3(...pl.basis_u), bv = new THREE.Vector3(...pl.basis_v);
+    const col = C[t]?.h || C.unknown.h;
 
-    const boundary = plane.boundary;
-    if (!boundary || boundary.length < 3) continue;
-
-    const centroid = new THREE.Vector3(...plane.centroid);
-    const basisU = new THREE.Vector3(...plane.basis_u);
-    const basisV = new THREE.Vector3(...plane.basis_v);
-    const color = COLORS[type]?.hex || COLORS.unknown.hex;
-
-    // Filled shape
-    const shape = new THREE.Shape();
-    const pts2d = boundary.map(p => {
-      const v = new THREE.Vector3(p[0], p[1], p[2]).sub(centroid);
-      return new THREE.Vector2(v.dot(basisU), v.dot(basisV));
-    });
-    shape.moveTo(pts2d[0].x, pts2d[0].y);
-    for (let i = 1; i < pts2d.length; i++) shape.lineTo(pts2d[i].x, pts2d[i].y);
-
-    const geom = new THREE.ShapeGeometry(shape);
-    const pos = geom.attributes.position;
+    const sh = new THREE.Shape();
+    const p2 = bnd.map(p => { const v = new THREE.Vector3(...p).sub(ct); return new THREE.Vector2(v.dot(bu), v.dot(bv)); });
+    sh.moveTo(p2[0].x, p2[0].y); p2.slice(1).forEach(p => sh.lineTo(p.x, p.y));
+    const g = new THREE.ShapeGeometry(sh);
+    const pos = g.attributes.position;
     for (let i = 0; i < pos.count; i++) {
       const u = pos.getX(i), v = pos.getY(i);
-      const p = centroid.clone().add(basisU.clone().multiplyScalar(u)).add(basisV.clone().multiplyScalar(v));
-      pos.setXYZ(i, p.x, p.y, p.z);
+      const p = ct.clone().add(bu.clone().multiplyScalar(u)).add(bv.clone().multiplyScalar(v));
+      const tp = xf(p.toArray()); pos.setXYZ(i, tp.x, tp.y, tp.z);
     }
-    geom.computeVertexNormals();
-
-    const mat = new THREE.MeshPhongMaterial({
-      color, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false,
-    });
-    planeGroups[type].add(new THREE.Mesh(geom, mat));
-
-    // Outline
-    const linePts = boundary.map(p => new THREE.Vector3(p[0], p[1], p[2]));
-    planeGroups[type].add(new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints(linePts),
-      new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.8 })
-    ));
-
-    // Openings in 3D
-    for (const opening of (plane.openings || [])) {
-      if (!opening.corners || opening.corners.length < 4) continue;
-      const oColor = COLORS[opening.type]?.hex || COLORS.door.hex;
-      
-      const oPts = opening.corners.map(p => new THREE.Vector3(p[0], p[1], p[2]));
-      openingGroup.add(new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints(oPts),
-        new THREE.LineBasicMaterial({ color: oColor })
-      ));
-
-      // Filled
-      const oShape = new THREE.Shape();
-      const o2d = opening.corners.map(p => {
-        const v = new THREE.Vector3(p[0], p[1], p[2]).sub(centroid);
-        return new THREE.Vector2(v.dot(basisU), v.dot(basisV));
-      });
-      oShape.moveTo(o2d[0].x, o2d[0].y);
-      for (let i = 1; i < o2d.length; i++) oShape.lineTo(o2d[i].x, o2d[i].y);
-      
-      const oGeom = new THREE.ShapeGeometry(oShape);
-      const oPos = oGeom.attributes.position;
-      for (let i = 0; i < oPos.count; i++) {
-        const u = oPos.getX(i), v = oPos.getY(i);
-        const p = centroid.clone().add(basisU.clone().multiplyScalar(u)).add(basisV.clone().multiplyScalar(v));
-        oPos.setXYZ(i, p.x, p.y, p.z);
-      }
-      openingGroup.add(new THREE.Mesh(oGeom, new THREE.MeshBasicMaterial({
-        color: oColor, transparent: true, opacity: 0.25, side: THREE.DoubleSide, depthWrite: false,
-      })));
+    g.computeVertexNormals();
+    planeGroups[t].add(new THREE.Mesh(g, new THREE.MeshPhongMaterial({ color: col, transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false })));
+    planeGroups[t].add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(bnd.map(p => xf(p))), new THREE.LineBasicMaterial({ color: col, opacity: 0.7, transparent: true })));
+    for (const op of (pl.openings||[])) {
+      if (!op.corners || op.corners.length < 4) continue;
+      openingGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(op.corners.map(p => xf(p))), new THREE.LineBasicMaterial({ color: C[op.type]?.h || C.door.h })));
     }
   }
 }
 
 function buildUI(planes) {
   const el = document.getElementById('layers');
-  addToggle(el, 'mesh', 'OBJ Mesh', '#cccccc', true, on => meshGroup.visible = on);
-  addToggle(el, 'grid', 'Grid', '#333355', true, on => grid.visible = on);
-  
-  const counts = {};
-  planes.forEach(p => counts[p.type] = (counts[p.type] || 0) + 1);
-  for (const [type, group] of Object.entries(planeGroups)) {
-    addToggle(el, type, `${type} (${counts[type]||0})`, COLORS[type]?.css||'#999', true, on => group.visible = on);
-  }
-  
-  let nD = 0, nW = 0;
-  planes.forEach(p => (p.openings||[]).forEach(o => o.type==='door' ? nD++ : nW++));
-  if (nD + nW > 0)
-    addToggle(el, 'openings', `openings (${nD}🚪 ${nW}🪟)`, COLORS.door.css, true, on => openingGroup.visible = on);
+  mk(el, 'mesh', 'Textured Mesh', '#ccc', true, on => meshGroup.visible = on);
+  mk(el, 'grid', 'Grid', '#444', true, on => grid.visible = on);
+  const cnts = {}; planes.forEach(p => cnts[p.type] = (cnts[p.type]||0)+1);
+  for (const [t,g] of Object.entries(planeGroups)) mk(el, t, `${t} (${cnts[t]||0})`, C[t]?.c||'#999', true, on => g.visible = on);
+  let nd=0, nw=0; planes.forEach(p => (p.openings||[]).forEach(o => o.type==='door'?nd++:nw++));
+  if (nd+nw) mk(el, 'openings', `openings (${nd}🚪 ${nw}🪟)`, C.door.c, true, on => openingGroup.visible = on);
+}
+function mk(p, id, l, c, ch, fn) {
+  const d = document.createElement('div'); d.className = 'layer';
+  d.innerHTML = `<span class="dot" style="background:${c}"></span><input type="checkbox" id="t-${id}" ${ch?'checked':''}><label for="t-${id}">${l}</label>`;
+  d.querySelector('input').addEventListener('change', e => fn(e.target.checked)); p.appendChild(d);
 }
 
-function addToggle(parent, id, label, color, checked, onChange) {
-  const div = document.createElement('div');
-  div.className = 'layer';
-  div.innerHTML = `<span class="color-dot" style="background:${color}"></span>
-    <input type="checkbox" id="t-${id}" ${checked?'checked':''}>
-    <label for="t-${id}">${label}</label>`;
-  div.querySelector('input').addEventListener('change', e => onChange(e.target.checked));
-  parent.appendChild(div);
-}
-
-function updateStats(data) {
-  const el = document.getElementById('stats');
-  const m = data.mesh;
-  const fp = data.floor_plan;
-  const planes = data.planes;
-  const walls = planes.filter(p => p.type === 'wall');
-  const wallArea = walls.reduce((s, w) => s + w.area, 0);
-  const nOpenings = planes.reduce((s, p) => s + (p.openings?.length || 0), 0);
-  
+function updateStats() {
+  const p = pData.planes, w = p.filter(x => x.type==='wall');
+  const nO = p.reduce((s,x) => s + (x.openings?.length||0), 0);
+  const fp = pData.floor_plan;
+  const wallArea = w.reduce((s,x) => s + x.area, 0);
   let html = `
-    <div class="stat-row"><span>Mesh</span><span class="stat-val">${m.vertices.toLocaleString()} verts / ${m.faces.toLocaleString()} faces</span></div>
-    <div class="stat-row"><span>Surface area</span><span class="stat-val">${m.total_area.toFixed(2)} m²</span></div>
-    <div class="stat-row"><span>Planes</span><span class="stat-val">${planes.length} (${walls.length} walls)</span></div>
-    <div class="stat-row"><span>Wall area</span><span class="stat-val">${wallArea.toFixed(2)} m²</span></div>
-    <div class="stat-row"><span>Openings</span><span class="stat-val">${nOpenings}</span></div>`;
-  
-  if (walls.length > 0) {
-    const heights = walls.filter(w => w.height_range).map(w => w.height_range[1] - w.height_range[0]);
-    if (heights.length) {
-      const avgH = heights.reduce((a, b) => a + b) / heights.length;
-      html += `<div class="stat-row"><span>Avg wall height</span><span class="stat-val">${avgH.toFixed(2)} m</span></div>`;
-    }
+    <div class="row"><span>Planes</span><span class="val">${p.length} (${w.length} walls)</span></div>
+    <div class="row"><span>Wall area</span><span class="val">${wallArea.toFixed(1)} m²</span></div>
+    <div class="row"><span>Openings</span><span class="val">${nO}</span></div>`;
+  if (fp?.rooms?.length) html += `<div class="row"><span>Room area</span><span class="val">${fp.rooms[0].area.toFixed(1)} m²</span></div>`;
+  if (w.length) {
+    const hs = w.filter(x=>x.height_range).map(x=>x.height_range[1]-x.height_range[0]);
+    if (hs.length) html += `<div class="row"><span>Wall height</span><span class="val">${(hs.reduce((a,b)=>a+b)/hs.length).toFixed(2)} m</span></div>`;
   }
-  
-  if (fp?.rooms?.length) {
-    html += `<div class="stat-row"><span>Rooms</span><span class="stat-val">${fp.rooms.length} (${fp.rooms[0].area.toFixed(2)} m²)</span></div>`;
-  }
-  
-  el.innerHTML = html;
+  document.getElementById('stats').innerHTML = html;
 }
 
-// Sliders
-document.getElementById('meshOpacity').addEventListener('input', e => {
-  meshGroup.traverse(c => { if (c.isMesh) c.material.opacity = e.target.value / 100; });
-});
-document.getElementById('planeOpacity').addEventListener('input', e => {
-  const v = e.target.value / 100;
-  Object.values(planeGroups).forEach(g => g.traverse(c => { if (c.isMesh) c.material.opacity = v; }));
-});
-document.getElementById('wireframe').addEventListener('change', e => {
-  meshGroup.traverse(c => { if (c.isMesh) c.material.wireframe = e.target.checked; });
-});
-
-// ── Floor Plan Canvas ──
-const fpCanvas = document.getElementById('fpCanvas');
-const fpCtx = fpCanvas.getContext('2d');
-
-function resizeFP() {
-  const panel = document.getElementById('floorplan');
-  fpCanvas.width = panel.clientWidth * devicePixelRatio;
-  fpCanvas.height = panel.clientHeight * devicePixelRatio;
-  fpCanvas.style.width = panel.clientWidth + 'px';
-  fpCanvas.style.height = panel.clientHeight + 'px';
-  if (planesData) drawFloorPlan(planesData);
-}
-resizeFP();
-
-function drawFloorPlan(data) {
-  const fp = data.floor_plan;
-  if (!fp) return;
-  const ctx = fpCtx;
-  const w = fpCanvas.width, h = fpCanvas.height;
-  const dpr = devicePixelRatio;
-
-  ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = '#0e0e22';
-  ctx.fillRect(0, 0, w, h);
+const fpC = document.getElementById('fpCanvas'), ctx = fpC.getContext('2d');
+function drawFP() {
+  if (!pData?.floor_plan) return;
+  const fp = pData.floor_plan;
+  const panel = document.getElementById('floorplan'), dpr = devicePixelRatio;
+  fpC.width = panel.clientWidth*dpr; fpC.height = panel.clientHeight*dpr;
+  fpC.style.width = panel.clientWidth+'px'; fpC.style.height = panel.clientHeight+'px';
+  const w = fpC.width, h = fpC.height;
+  ctx.clearRect(0,0,w,h); ctx.fillStyle = '#0a0a1e'; ctx.fillRect(0,0,w,h);
 
   const allPts = [];
-  fp.wall_segments.forEach(s => {
-    allPts.push(s.start, s.end);
-    s.thickness_rect.forEach(p => allPts.push(p));
-  });
+  fp.wall_segments.forEach(s => { allPts.push(s.start, s.end); s.thickness_rect.forEach(p => allPts.push(p)); });
   fp.openings.forEach(o => o.corners.forEach(c => allPts.push(c)));
-  fp.rooms?.forEach(r => r.boundary.forEach(p => allPts.push(p)));
-
+  (fp.rooms||[]).forEach(r => r.boundary.forEach(p => allPts.push(p)));
   if (!allPts.length) return;
 
-  const xs = allPts.map(p => p[0]), ys = allPts.map(p => p[1]);
-  const minX = Math.min(...xs), maxX = Math.max(...xs);
-  const minY = Math.min(...ys), maxY = Math.max(...ys);
-  
-  const pad = 50 * dpr;
-  const scaleX = (w - 2 * pad) / (maxX - minX || 1);
-  const scaleY = (h - 2 * pad) / (maxY - minY || 1);
-  const scale = Math.min(scaleX, scaleY);
-  const cx = w / 2, cy = h / 2;
-  const midX = (minX + maxX) / 2, midY = (minY + maxY) / 2;
-
-  const tx = p => [cx + (p[0] - midX) * scale, cy + (p[1] - midY) * scale];
+  const xs = allPts.map(p=>p[0]), ys = allPts.map(p=>p[1]);
+  const [mnX,mxX,mnY,mxY] = [Math.min(...xs),Math.max(...xs),Math.min(...ys),Math.max(...ys)];
+  const pad = 50*dpr;
+  const scale = Math.min((w-2*pad)/(mxX-mnX||1),(h-2*pad)/(mxY-mnY||1));
+  const cx=w/2, cy=h/2, midX=(mnX+mxX)/2, midY=(mnY+mxY)/2;
+  const tx = p => [cx+(p[0]-midX)*scale, cy+(p[1]-midY)*scale];
 
   // Room fill
-  for (const room of (fp.rooms || [])) {
-    ctx.fillStyle = 'rgba(102, 187, 106, 0.08)';
-    ctx.beginPath();
+  for (const room of (fp.rooms||[])) {
+    ctx.fillStyle = 'rgba(102,187,106,0.08)';
     const pts = room.boundary.map(tx);
-    ctx.moveTo(pts[0][0], pts[0][1]);
-    pts.slice(1).forEach(p => ctx.lineTo(p[0], p[1]));
-    ctx.fill();
-    
-    // Room outline
-    ctx.strokeStyle = 'rgba(102, 187, 106, 0.3)';
-    ctx.lineWidth = 1 * dpr;
-    ctx.setLineDash([4 * dpr, 4 * dpr]);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    
-    // Room area label
-    const centroid = pts.reduce((a, p) => [a[0] + p[0], a[1] + p[1]], [0, 0]);
-    centroid[0] /= pts.length; centroid[1] /= pts.length;
-    ctx.fillStyle = 'rgba(102, 187, 106, 0.5)';
-    ctx.font = `${11 * dpr}px system-ui`;
-    ctx.textAlign = 'center';
-    ctx.fillText(`${room.area.toFixed(1)} m²`, centroid[0], centroid[1]);
-    ctx.textAlign = 'start';
+    ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]);
+    pts.slice(1).forEach(p => ctx.lineTo(p[0],p[1])); ctx.fill();
+    ctx.strokeStyle = 'rgba(102,187,106,0.3)'; ctx.lineWidth = 1*dpr; ctx.setLineDash([4*dpr,4*dpr]); ctx.stroke(); ctx.setLineDash([]);
+    const cen = pts.reduce((a,p) => [a[0]+p[0],a[1]+p[1]], [0,0]);
+    cen[0] /= pts.length; cen[1] /= pts.length;
+    ctx.fillStyle = 'rgba(102,187,106,0.5)'; ctx.font = `${11*dpr}px system-ui`; ctx.textAlign = 'center';
+    ctx.fillText(`${room.area.toFixed(1)} m²`, cen[0], cen[1]); ctx.textAlign = 'start';
   }
 
-  // Wall thickness rectangles
-  for (const seg of fp.wall_segments) {
-    const rect = seg.thickness_rect.map(tx);
-    ctx.fillStyle = 'rgba(255, 152, 0, 0.3)';
-    ctx.strokeStyle = COLORS.wall.css;
-    ctx.lineWidth = 1.5 * dpr;
-    ctx.beginPath();
-    ctx.moveTo(rect[0][0], rect[0][1]);
-    rect.slice(1).forEach(p => ctx.lineTo(p[0], p[1]));
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
+  // Wall thickness
+  for (const s of fp.wall_segments) {
+    const r = s.thickness_rect.map(tx);
+    ctx.fillStyle = 'rgba(255,152,0,0.25)'; ctx.strokeStyle = C.wall.c; ctx.lineWidth = 1.5*dpr;
+    ctx.beginPath(); ctx.moveTo(r[0][0],r[0][1]); r.slice(1).forEach(p => ctx.lineTo(p[0],p[1])); ctx.closePath(); ctx.fill(); ctx.stroke();
   }
-
   // Wall center lines
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth = 2 * dpr;
-  ctx.lineCap = 'round';
-  for (const seg of fp.wall_segments) {
-    const [x1, y1] = tx(seg.start);
-    const [x2, y2] = tx(seg.end);
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2*dpr; ctx.lineCap = 'round';
+  for (const s of fp.wall_segments) {
+    const [x1,y1]=tx(s.start),[x2,y2]=tx(s.end);
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
   }
-
   // Openings
-  for (const opening of fp.openings) {
-    const color = opening.type === 'door' ? COLORS.door.css : COLORS.window.css;
-    const corners = opening.corners.map(tx);
-    
-    if (opening.type === 'door') {
-      // Door arc
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1.5 * dpr;
-      const [x1, y1] = corners[0];
-      const [x2, y2] = corners[1];
-      const dx = x2 - x1, dy = y2 - y1;
-      const radius = Math.sqrt(dx * dx + dy * dy);
-      const startAngle = Math.atan2(dy, dx);
-      ctx.beginPath();
-      ctx.arc(x1, y1, radius, startAngle, startAngle + Math.PI / 2);
-      ctx.stroke();
-      
-      // Gap in wall
-      ctx.strokeStyle = '#0e0e22';
-      ctx.lineWidth = 4 * dpr;
-      ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.stroke();
-    } else {
-      // Window: parallel lines
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1.5 * dpr;
-      ctx.beginPath();
-      ctx.moveTo(corners[0][0], corners[0][1]);
-      ctx.lineTo(corners[1][0], corners[1][1]);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(corners[3][0], corners[3][1]);
-      ctx.lineTo(corners[2][0], corners[2][1]);
-      ctx.stroke();
-    }
-    
-    // Label
-    const mid = tx(opening.corners[0]);
-    ctx.fillStyle = color;
-    ctx.font = `${9 * dpr}px system-ui`;
-    ctx.fillText(opening.type === 'door' ? '🚪' : '🪟', mid[0] - 6 * dpr, mid[1] - 6 * dpr);
+  for (const o of fp.openings) {
+    const col = o.type==='door'?C.door.c:C.window.c;
+    ctx.strokeStyle = col; ctx.lineWidth = 1.5*dpr; ctx.setLineDash([3*dpr,3*dpr]);
+    const pts = o.corners.map(tx);
+    ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]); pts.slice(1).forEach(p=>ctx.lineTo(p[0],p[1])); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = col; ctx.font = `${9*dpr}px system-ui`;
+    ctx.fillText(o.type==='door'?'🚪':'🪟', pts[0][0]-4*dpr, pts[0][1]-6*dpr);
   }
-
-  // Scale bar
-  const barLen = 1.0;
-  const barPx = barLen * scale;
-  const barY = h - 24 * dpr;
-  const barX = 24 * dpr;
-  ctx.strokeStyle = '#555';
-  ctx.lineWidth = 1.5 * dpr;
-  ctx.setLineDash([]);
-  ctx.beginPath();
-  ctx.moveTo(barX, barY); ctx.lineTo(barX + barPx, barY);
-  ctx.stroke();
-  for (const x of [barX, barX + barPx]) {
-    ctx.beginPath();
-    ctx.moveTo(x, barY - 4 * dpr); ctx.lineTo(x, barY + 4 * dpr);
-    ctx.stroke();
-  }
-  ctx.fillStyle = '#555';
-  ctx.font = `${9 * dpr}px system-ui`;
-  ctx.fillText('1m', barX + barPx / 2 - 6 * dpr, barY + 14 * dpr);
-  
-  // North arrow (or axis indicator)
-  ctx.fillStyle = '#444';
-  ctx.font = `${10 * dpr}px system-ui`;
-  ctx.fillText('X →', w - 40 * dpr, h - 30 * dpr);
-  ctx.fillText('Z ↓', w - 40 * dpr, h - 16 * dpr);
+  // Scale
+  const bPx=1*scale, bY=h-20*dpr, bX=20*dpr;
+  ctx.strokeStyle='#555'; ctx.lineWidth=1.5*dpr;
+  ctx.beginPath(); ctx.moveTo(bX,bY); ctx.lineTo(bX+bPx,bY); ctx.stroke();
+  ctx.fillStyle='#555'; ctx.font=`${9*dpr}px system-ui`; ctx.fillText('1m',bX+bPx/2-6*dpr,bY+14*dpr);
 }
 
-// Render
-function animate() {
-  requestAnimationFrame(animate);
-  controls.update();
-  renderer.render(scene, camera);
-}
-animate();
+document.getElementById('meshOpacity').addEventListener('input', e => { meshGroup.traverse(c => { if (c.isMesh) c.material.opacity = e.target.value/100; }); });
+document.getElementById('planeOpacity').addEventListener('input', e => { const v=e.target.value/100; Object.values(planeGroups).forEach(g => g.traverse(c => { if (c.isMesh) c.material.opacity = v; })); });
+document.getElementById('wireframe').addEventListener('change', e => { meshGroup.traverse(c => { if (c.isMesh) c.material.wireframe = e.target.checked; }); });
+
+(function a() { requestAnimationFrame(a); ctrl.update(); renderer.render(scene, camera); })();
 </script>
 </body>
 </html>
