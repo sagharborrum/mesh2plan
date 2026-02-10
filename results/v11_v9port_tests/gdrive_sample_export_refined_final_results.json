@@ -2,11 +2,11 @@
   "summary": {
     "coordinate_system": "Y-up",
     "walls": 4,
-    "doors": 2,
+    "doors": 1,
     "windows": 1,
-    "total_openings": 3,
-    "area_m2": 9.708068795027593,
-    "perimeter_m": 12.615076423122634,
+    "total_openings": 2,
+    "area_m2": 11.533790384186684,
+    "perimeter_m": 13.617719649564744,
     "dominant_angle_deg": 5
   },
   "walls": [
@@ -62,26 +62,18 @@
   "openings": [
     {
       "type": "window",
-      "width_m": 1.83,
+      "width_m": 1.82,
       "position": [
-        -1.61,
+        -1.614,
         -2.748
       ]
     },
     {
       "type": "door",
-      "width_m": 0.99,
-      "position": [
-        2.16,
-        0.258
-      ]
-    },
-    {
-      "type": "door",
-      "width_m": 0.71,
+      "width_m": 0.67,
       "position": [
         -0.771,
-        -2.162
+        -2.157
       ]
     }
   ]

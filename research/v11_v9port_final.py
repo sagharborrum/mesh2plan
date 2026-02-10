@@ -328,11 +328,20 @@ def build_rectilinear_room_polygon(walls, angle_rad):
     if len(x_walls) < 2 or len(z_walls) < 2:
         return None
     
-    # Get boundary positions (outermost walls on each axis)
+    # Get boundary positions using wall EXTENTS for a fuller room polygon
+    # Use wall positions for the axis they're on, but extend Z using the 
+    # longest wall's extent to capture the full room
     left_x = x_walls[0]['position']      # Leftmost X wall
     right_x = x_walls[-1]['position']    # Rightmost X wall
-    bottom_z = z_walls[0]['position']    # Bottommost Z wall  
-    top_z = z_walls[-1]['position']      # Topmost Z wall
+    
+    # For Z bounds: use Z-wall positions, extended by X-wall coverage
+    # Bottom: use the further south of bottom Z wall or longest X wall start
+    # Top: use the further north of top Z wall or average of X wall ends
+    longest_x = max(x_walls, key=lambda w: w['length'])
+    bottom_z = min(z_walls[0]['position'], longest_x['start'])
+    # Extend top to where X walls still have coverage
+    x_wall_top_avg = np.mean([w['end'] for w in x_walls])
+    top_z = max(z_walls[-1]['position'], x_wall_top_avg)
     
     # Create rectilinear room polygon (axis-aligned rectangle)
     # These are the 4 corners of the basic room rectangle
@@ -368,9 +377,9 @@ def detect_openings_strict(walls, rotated_points, angle_deg):
         axis = 0 if w['axis'] == 'x' else 1
         near = []
         
-        # Find points near this wall
+        # Find points near this wall (wider tolerance to catch gaps near wall edges)
         for p in rotated_points:
-            if abs(p[axis] - w['position']) < 0.06:  # Slightly relaxed tolerance
+            if abs(p[axis] - w['position']) < 0.10:  # Wider tolerance
                 near.append(p[1 - axis])
         
         if len(near) < 4:  # Slightly reduced minimum
@@ -382,8 +391,8 @@ def detect_openings_strict(walls, rotated_points, angle_deg):
         for i in range(len(near) - 1):
             gap = near[i + 1] - near[i]
             
-            # STRICT: Minimum gap 0.4m to avoid noise (slightly lowered)
-            if gap < 0.4:
+            # Minimum gap 0.35m to catch smaller doors
+            if gap < 0.35:
                 continue
                 
             g_mid = (near[i] + near[i + 1]) / 2
