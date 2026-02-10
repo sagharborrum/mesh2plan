@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mesh2plan — Geometry Viewer</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a1a2e; color: #eee; font-family: system-ui, sans-serif; overflow: hidden; }
+canvas { display: block; }
+
+#controls {
+  position: absolute; top: 16px; left: 16px; z-index: 10;
+  background: rgba(20, 20, 40, 0.9); border-radius: 12px; padding: 16px;
+  min-width: 220px; backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+#controls h2 { font-size: 14px; margin-bottom: 12px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
+
+.layer { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; cursor: pointer; }
+.layer input { cursor: pointer; }
+.layer label { cursor: pointer; font-size: 13px; flex: 1; }
+.layer .count { font-size: 11px; color: #666; }
+
+.color-dot {
+  width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
+}
+
+.separator { border-top: 1px solid rgba(255,255,255,0.1); margin: 12px 0; }
+
+#info {
+  position: absolute; bottom: 16px; left: 16px; z-index: 10;
+  background: rgba(20, 20, 40, 0.9); border-radius: 8px; padding: 12px;
+  font-size: 12px; color: #888; backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.slider-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.slider-row label { font-size: 12px; min-width: 60px; }
+.slider-row input[type=range] { flex: 1; }
+</style>
+</head>
+<body>
+
+<div id="controls">
+  <h2>mesh2plan</h2>
+  <div id="layers"></div>
+  <div class="separator"></div>
+  <div class="slider-row">
+    <label>Opacity</label>
+    <input type="range" id="planeOpacity" min="0" max="100" value="60">
+  </div>
+  <div class="slider-row">
+    <label>Wireframe</label>
+    <input type="checkbox" id="wireframe">
+  </div>
+</div>
+
+<div id="info">Loading mesh...</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+
+const PLANE_COLORS = {
+  floor:   0x4CAF50,
+  ceiling: 0x2196F3,
+  wall:    0xFF9800,
+  unknown: 0x9C27B0,
+  door:    0xE91E63,
+  window:  0x00BCD4,
+};
+
+// Scene setup
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a1a2e);
+
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.01, 100);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+
+// Lights
+scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+dirLight.position.set(5, 5, 5);
+scene.add(dirLight);
+
+// Groups for toggling
+const meshGroup = new THREE.Group();
+const planeGroups = {}; // type -> Group
+
+scene.add(meshGroup);
+
+const info = document.getElementById('info');
+
+// Load OBJ
+const objLoader = new OBJLoader();
+objLoader.load('../data/2026_01_13_14_47_59/export_refined.obj', (obj) => {
+  obj.traverse(child => {
+    if (child.isMesh) {
+      child.material = new THREE.MeshPhongMaterial({
+        color: 0xcccccc,
+        transparent: true,
+        opacity: 0.5,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      });
+    }
+  });
+  meshGroup.add(obj);
+
+  // Center camera on mesh
+  const box = new THREE.Box3().setFromObject(obj);
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z);
+
+  controls.target.copy(center);
+  camera.position.copy(center.clone().add(new THREE.Vector3(maxDim, maxDim * 0.7, maxDim)));
+  controls.update();
+
+  info.textContent = `Mesh: ${countVertices(obj)} verts | Drag to rotate, scroll to zoom`;
+
+  // Load planes
+  loadPlanes();
+}, undefined, (err) => {
+  info.textContent = 'Error loading mesh: ' + err.message;
+});
+
+function countVertices(obj) {
+  let count = 0;
+  obj.traverse(c => { if (c.isMesh) count += c.geometry.attributes.position.count; });
+  return count.toLocaleString();
+}
+
+async function loadPlanes() {
+  try {
+    const resp = await fetch('../output/planes.json');
+    const data = await resp.json();
+    buildPlaneGeometry(data.planes);
+    buildUI(data.planes);
+  } catch (e) {
+    console.error('Failed to load planes:', e);
+  }
+}
+
+function buildPlaneGeometry(planes) {
+  for (const plane of planes) {
+    const type = plane.type;
+    if (!planeGroups[type]) {
+      planeGroups[type] = new THREE.Group();
+      scene.add(planeGroups[type]);
+    }
+
+    const boundary = plane.boundary;
+    if (!boundary || boundary.length < 3) continue;
+
+    // Create filled polygon from boundary using triangulation
+    const shape = new THREE.Shape();
+    const normal = new THREE.Vector3(...plane.normal);
+    const centroid = new THREE.Vector3(...plane.centroid);
+    const basisU = new THREE.Vector3(...plane.basis_u);
+    const basisV = new THREE.Vector3(...plane.basis_v);
+
+    // Project boundary to 2D for Shape
+    const pts2d = boundary.map(p => {
+      const v = new THREE.Vector3(p[0], p[1], p[2]).sub(centroid);
+      return new THREE.Vector2(v.dot(basisU), v.dot(basisV));
+    });
+
+    shape.moveTo(pts2d[0].x, pts2d[0].y);
+    for (let i = 1; i < pts2d.length; i++) {
+      shape.lineTo(pts2d[i].x, pts2d[i].y);
+    }
+
+    const shapeGeom = new THREE.ShapeGeometry(shape);
+
+    // Transform back to 3D
+    const positions = shapeGeom.attributes.position;
+    for (let i = 0; i < positions.count; i++) {
+      const u = positions.getX(i);
+      const v = positions.getY(i);
+      const p = centroid.clone()
+        .add(basisU.clone().multiplyScalar(u))
+        .add(basisV.clone().multiplyScalar(v));
+      positions.setXYZ(i, p.x, p.y, p.z);
+    }
+    shapeGeom.computeVertexNormals();
+
+    const color = PLANE_COLORS[type] || PLANE_COLORS.unknown;
+    const mat = new THREE.MeshPhongMaterial({
+      color,
+      transparent: true,
+      opacity: 0.6,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+
+    const mesh = new THREE.Mesh(shapeGeom, mat);
+    mesh.userData.planeType = type;
+    planeGroups[type].add(mesh);
+
+    // Outline
+    const lineGeom = new THREE.BufferGeometry().setFromPoints(
+      boundary.map(p => new THREE.Vector3(p[0], p[1], p[2]))
+    );
+    const lineMat = new THREE.LineBasicMaterial({ color, linewidth: 2 });
+    const line = new THREE.LineLoop(lineGeom, lineMat);
+    planeGroups[type].add(line);
+  }
+}
+
+function buildUI(planes) {
+  const layersDiv = document.getElementById('layers');
+
+  // Mesh toggle
+  const meshLayer = createToggle('mesh', 'OBJ Mesh', 0xcccccc, true, (on) => {
+    meshGroup.visible = on;
+  });
+  layersDiv.appendChild(meshLayer);
+
+  // Count by type
+  const counts = {};
+  planes.forEach(p => { counts[p.type] = (counts[p.type] || 0) + 1; });
+
+  // Plane type toggles
+  for (const [type, group] of Object.entries(planeGroups)) {
+    const color = PLANE_COLORS[type] || PLANE_COLORS.unknown;
+    const n = counts[type] || 0;
+    const layer = createToggle(type, `${type} (${n})`, color, true, (on) => {
+      group.visible = on;
+    });
+    layersDiv.appendChild(layer);
+  }
+}
+
+function createToggle(id, label, color, checked, onChange) {
+  const div = document.createElement('div');
+  div.className = 'layer';
+
+  const dot = document.createElement('span');
+  dot.className = 'color-dot';
+  dot.style.background = '#' + color.toString(16).padStart(6, '0');
+
+  const cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.checked = checked;
+  cb.id = 'toggle-' + id;
+  cb.addEventListener('change', () => onChange(cb.checked));
+
+  const lbl = document.createElement('label');
+  lbl.htmlFor = cb.id;
+  lbl.textContent = label;
+
+  div.append(dot, cb, lbl);
+  return div;
+}
+
+// Opacity slider
+document.getElementById('planeOpacity').addEventListener('input', (e) => {
+  const val = e.target.value / 100;
+  for (const group of Object.values(planeGroups)) {
+    group.traverse(c => {
+      if (c.isMesh && c.material) c.material.opacity = val;
+    });
+  }
+});
+
+// Wireframe toggle
+document.getElementById('wireframe').addEventListener('change', (e) => {
+  meshGroup.traverse(c => {
+    if (c.isMesh && c.material) c.material.wireframe = e.target.checked;
+  });
+});
+
+// Resize
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// Render loop
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
