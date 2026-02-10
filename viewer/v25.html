@@ -20,6 +20,7 @@ h1 { font-size: 24px; color: #00E5FF; margin-bottom: 8px; }
 .badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-right: 6px; }
 .badge-area { background: rgba(0,229,255,0.2); color: #00E5FF; }
 .badge-approach { background: rgba(255,165,0,0.2); color: #FFA500; }
+.badge-best { background: rgba(0,255,100,0.2); color: #00FF64; }
 pre { background: rgba(0,0,0,0.4); padding: 12px; border-radius: 8px; font-size: 12px; overflow-x: auto; margin-top: 12px; color: #ccc; max-height: 400px; overflow-y: auto; }
 a { color: #00E5FF; }
 nav { margin-bottom: 20px; }
@@ -30,17 +31,18 @@ nav a { margin-right: 12px; font-size: 13px; }
 <nav><a href="index.html">← All Versions</a> <a href="v24.html">← v24</a> <a href="v26.html">v26 →</a></nav>
 <h1>v25 — Structured Edge Detection</h1>
 <span class="badge badge-approach">Sobel + Laplacian + Morph Gradient + NMS + Hough + Structural Selection</span>
-<span class="badge badge-area">11.8m²</span>
-<p class="desc">Combines Sobel, Laplacian, and morphological gradient edge detectors, applies non-maximum suppression, then extracts wall segments via Hough transform. Uses v19-style structural polygon construction from wall positions. Successfully detects L-shape (6 vertices) with reasonable area estimate. The multi-edge fusion provides robust wall detection.</p>
+<span class="badge badge-area">10.2m²</span>
+<span class="badge badge-best">★ NEAR-EXACT</span>
+<p class="desc">Combines Sobel, Laplacian, and morphological gradient edge detectors, applies non-maximum suppression, then extracts wall segments via Hough transform. Filters weak Hough clusters by minimum total segment length (≥3m for Z-walls, ≥0.8m for X-walls). Uses density-grid column sampling to find L-shape step position, snaps to nearest Hough wall. 4-panel visualization includes edge+polygon overlay for validation. Clean 6-vertex L-shape, 10.2m² vs 10.4m² target.</p>
 <div class="results">
   <div class="card">
     <h2>Floor Plan</h2>
     <img src="../results/v25_structured_edges/v25_export_refined_floorplan.png" alt="floor plan">
     <div class="stats">
-      <div class="stat"><div class="stat-label">Area</div><div class="stat-value">11.8m²</div></div>
+      <div class="stat"><div class="stat-label">Area</div><div class="stat-value">10.2m²</div></div>
       <div class="stat"><div class="stat-label">Target</div><div class="stat-value">10.4m²</div></div>
       <div class="stat"><div class="stat-label">Walls</div><div class="stat-value">6</div></div>
-      <div class="stat"><div class="stat-label">Vertices</div><div class="stat-value">6</div></div>
+      <div class="stat"><div class="stat-label">Error</div><div class="stat-value">0.2m²</div></div>
     </div>
   </div>
 </div>
