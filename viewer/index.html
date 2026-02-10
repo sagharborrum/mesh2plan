@@ -70,7 +70,9 @@ body { background: #1a1a2e; color: #eee; font-family: system-ui, sans-serif; ove
     </div>
     <div class="btn-row">
       <button onclick="exportSVG()">⬇ SVG</button>
-      <button onclick="loadDemo()">📦 Demo scan</button>
+      <button onclick="exportDXF()">⬇ DXF</button>
+      <button onclick="toggleUnits()">📏 m/ft</button>
+      <button onclick="loadDemo()">📦 Demo</button>
     </div>
     <div id="stats"></div>
   </div>
@@ -114,6 +116,7 @@ let meshBounds = null;
 let meshCenter = new THREE.Vector3();
 let floorYoff = 0;
 let analysisResult = null;
+let useMetric = true;
 
 // Expose for debugging
 window._camera = camera; window._meshGroup = meshGroup; window._scene = scene;
@@ -706,6 +709,9 @@ function updateStats() {
   if (r.room) document.getElementById('fp-info').textContent = `${r.room.area.toFixed(1)} m² | ${r.walls.length} walls | ${r.gaps.length} openings`;
 }
 
+function fmtLen(m) { return useMetric ? `${m.toFixed(2)}m` : `${(m*3.281).toFixed(1)}ft`; }
+function fmtArea(m2) { return useMetric ? `${m2.toFixed(1)} m²` : `${(m2*10.764).toFixed(0)} ft²`; }
+
 // Floor plan canvas
 const fpC = document.getElementById('fpCanvas'), ctx = fpC.getContext('2d');
 function drawFP() {
@@ -814,7 +820,7 @@ function drawFP() {
     let angle = Math.atan2(dy, dx);
     if (angle > Math.PI/2) angle -= Math.PI; if (angle < -Math.PI/2) angle += Math.PI;
     ctx.rotate(angle); ctx.textAlign = 'center';
-    ctx.fillText(`${wall.length.toFixed(2)}m`, 0, -4*dpr);
+    ctx.fillText(fmtLen(wall.length), 0, -4*dpr);
     ctx.restore();
   }
 
@@ -826,9 +832,10 @@ function drawFP() {
     ctx.fillStyle = 'rgba(10,10,30,0.6)';
     ctx.fillRect(rcx-60*dpr, rcy-16*dpr, 120*dpr, 38*dpr);
     ctx.fillStyle = 'rgba(0, 229, 255, 0.9)'; ctx.font = `bold ${16*dpr}px system-ui`; ctx.textAlign = 'center';
-    ctx.fillText(`${r.room.area.toFixed(1)} m²`, rcx, rcy);
+    ctx.fillText(fmtArea(r.room.area), rcx, rcy);
     ctx.font = `${11*dpr}px system-ui`; ctx.fillStyle = 'rgba(0, 229, 255, 0.4)';
-    ctx.fillText(`(${(r.room.area*10.764).toFixed(0)} ft²)`, rcx, rcy+16*dpr);
+    const altArea = useMetric ? `(${(r.room.area*10.764).toFixed(0)} ft²)` : `(${r.room.area.toFixed(1)} m²)`;
+    ctx.fillText(altArea, rcx, rcy+16*dpr);
     ctx.textAlign = 'start';
   }
 
@@ -839,6 +846,62 @@ function drawFP() {
   [bX, bX+bPx].forEach(x => { ctx.beginPath(); ctx.moveTo(x,bY-3*dpr); ctx.lineTo(x,bY+3*dpr); ctx.stroke(); });
   ctx.fillStyle='#555'; ctx.font=`${9*dpr}px system-ui`; ctx.fillText('1m',bX+bPx/2-6*dpr,bY+14*dpr);
 }
+
+window.exportDXF = () => {
+  if (!analysisResult) return;
+  const r = analysisResult;
+  let dxf = '0\nSECTION\n2\nENTITIES\n';
+  
+  // Walls as polylines
+  for (const wall of r.walls) {
+    const [x1,y1] = wall.startPt;
+    const [x2,y2] = wall.endPt;
+    const dx = x2-x1, dy = y2-y1;
+    const len = Math.sqrt(dx*dx+dy*dy);
+    if (len < 0.01) continue;
+    const nx = -dy/len * 0.06, ny = dx/len * 0.06; // half wall thickness
+    
+    // Wall as closed polyline
+    dxf += '0\nLWPOLYLINE\n8\nWALLS\n70\n1\n'; // layer WALLS, closed
+    const pts = [[x1+nx,y1+ny],[x2+nx,y2+ny],[x2-nx,y2-ny],[x1-nx,y1-ny]];
+    for (const [px,py] of pts) dxf += `10\n${px.toFixed(4)}\n20\n${py.toFixed(4)}\n`;
+  }
+  
+  // Room outline
+  if (r.room?.exterior) {
+    dxf += '0\nLWPOLYLINE\n8\nROOM\n70\n1\n';
+    for (const [px,py] of r.room.exterior) dxf += `10\n${px.toFixed(4)}\n20\n${py.toFixed(4)}\n`;
+  }
+  
+  // Gaps
+  for (const gap of r.gaps) {
+    dxf += `0\nLINE\n8\n${gap.type.toUpperCase()}S\n`;
+    dxf += `10\n${gap.start[0].toFixed(4)}\n20\n${gap.start[1].toFixed(4)}\n`;
+    dxf += `11\n${gap.end[0].toFixed(4)}\n21\n${gap.end[1].toFixed(4)}\n`;
+  }
+  
+  // Measurements as text
+  for (const wall of r.walls) {
+    if (wall.length < 0.5) continue;
+    const mx = (wall.startPt[0]+wall.endPt[0])/2;
+    const my = (wall.startPt[1]+wall.endPt[1])/2;
+    dxf += `0\nTEXT\n8\nDIMENSIONS\n10\n${mx.toFixed(4)}\n20\n${my.toFixed(4)}\n40\n0.15\n1\n${wall.length.toFixed(2)}m\n`;
+  }
+  
+  // Room area text
+  if (r.room) {
+    const ext = r.room.exterior;
+    const cx = ext.reduce((s,p)=>s+p[0],0)/ext.length;
+    const cy = ext.reduce((s,p)=>s+p[1],0)/ext.length;
+    dxf += `0\nTEXT\n8\nAREA\n10\n${cx.toFixed(4)}\n20\n${cy.toFixed(4)}\n40\n0.25\n1\n${r.room.area.toFixed(1)} m2\n`;
+  }
+  
+  dxf += '0\nENDSEC\n0\nEOF\n';
+  
+  const blob = new Blob([dxf], { type: 'application/dxf' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'floorplan.dxf'; a.click();
+};
 
 window.exportSVG = () => {
   if (!analysisResult) return;
@@ -876,6 +939,12 @@ window.exportSVG = () => {
   const blob = new Blob([svg], { type: 'image/svg+xml' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = 'floorplan.svg'; a.click();
+};
+
+window.toggleUnits = () => {
+  useMetric = !useMetric;
+  drawFP();
+  updateStats();
 };
 
 window.loadDemo = async () => {
