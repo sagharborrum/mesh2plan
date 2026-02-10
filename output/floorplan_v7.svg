@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 710 587" width="710" height="587">
+<rect width="709.556093631388" height="586.9346290047222" fill="white"/>
+<polygon points="267.0,80.3 629.6,112.1 599.6,454.3 237.0,422.6 267.0,80.3" fill="#f0f7ff" stroke="none"/>
+<polygon points="259.7,94.6 236.3,362.2 248.2,363.3 271.6,95.6" fill="#333" stroke="#111" stroke-width="1"/>
+<polygon points="521.4,117.3 492.8,445.0 504.7,446.1 533.4,118.3" fill="#333" stroke="#111" stroke-width="1"/>
+<polygon points="622.1,128.3 589.0,506.4 601.0,507.5 634.1,129.4" fill="#333" stroke="#111" stroke-width="1"/>
+<polygon points="438.9,101.4 518.7,108.4 519.8,96.4 439.9,89.5" fill="#333" stroke="#111" stroke-width="1"/>
+<polygon points="79.5,86.0 627.8,134.0 628.9,122.0 80.5,74.0" fill="#333" stroke="#111" stroke-width="1"/>
+<polygon points="242.4,371.1 608.9,403.2 609.9,391.2 243.5,359.1" fill="#333" stroke="#111" stroke-width="1"/>
+<polygon points="498.1,451.4 599.4,460.3 600.4,448.3 499.2,439.5" fill="#333" stroke="#111" stroke-width="1"/>
+<line x1="527.2" y1="119.6" x2="510.5" y2="310.6" stroke="#4CAF50" stroke-width="4"/>
+<line x1="527.2" y1="119.6" x2="510.5" y2="310.6" stroke="white" stroke-width="2"/>
+<line x1="509.4" y1="323.2" x2="504.0" y2="384.7" stroke="#2196F3" stroke-width="3" stroke-dasharray="6,3"/>
+<circle cx="509.4" cy="323.2" r="30.9" fill="none" stroke="#2196F3" stroke-width="1" stroke-dasharray="3,3" opacity="0.4"/>
+<line x1="84.4" y1="80.4" x2="255.0" y2="95.3" stroke="#4CAF50" stroke-width="4"/>
+<line x1="84.4" y1="80.4" x2="255.0" y2="95.3" stroke="white" stroke-width="2"/>
+<line x1="408.1" y1="437.5" x2="498.7" y2="445.4" stroke="#2196F3" stroke-width="3" stroke-dasharray="6,3"/>
+<circle cx="408.1" cy="437.5" r="45.5" fill="none" stroke="#2196F3" stroke-width="1" stroke-dasharray="3,3" opacity="0.4"/>
+<line x1="240.8" y1="92.9" x2="217.3" y2="360.6" stroke="#999" stroke-width="0.5" stroke-dasharray="3,3"/>
+<text x="229.1" y="222.8" text-anchor="middle" font-size="11" font-family="system-ui" fill="#666" transform="rotate(-85.0,229.1,222.8)">2.69m</text>
+<line x1="502.5" y1="115.6" x2="473.8" y2="443.4" stroke="#999" stroke-width="0.5" stroke-dasharray="3,3"/>
+<text x="488.2" y="275.5" text-anchor="middle" font-size="11" font-family="system-ui" fill="#666" transform="rotate(-85.0,488.2,275.5)">3.29m</text>
+<line x1="603.2" y1="126.7" x2="570.1" y2="504.8" stroke="#999" stroke-width="0.5" stroke-dasharray="3,3"/>
+<text x="586.6" y="311.7" text-anchor="middle" font-size="11" font-family="system-ui" fill="#666" transform="rotate(-85.0,586.6,311.7)">3.80m</text>
+<line x1="437.2" y1="120.3" x2="517.1" y2="127.3" stroke="#999" stroke-width="0.5" stroke-dasharray="3,3"/>
+<text x="477.1" y="119.8" text-anchor="middle" font-size="11" font-family="system-ui" fill="#666" transform="rotate(5.0,477.1,119.8)">0.80m</text>
+<line x1="77.8" y1="104.9" x2="626.2" y2="152.9" stroke="#999" stroke-width="0.5" stroke-dasharray="3,3"/>
+<text x="352.0" y="124.9" text-anchor="middle" font-size="11" font-family="system-ui" fill="#666" transform="rotate(5.0,352.0,124.9)">5.50m</text>
+<line x1="240.8" y1="390.0" x2="607.2" y2="422.1" stroke="#999" stroke-width="0.5" stroke-dasharray="3,3"/>
+<text x="424.0" y="402.1" text-anchor="middle" font-size="11" font-family="system-ui" fill="#666" transform="rotate(5.0,424.0,402.1)">3.68m</text>
+<line x1="496.5" y1="470.3" x2="597.7" y2="479.2" stroke="#999" stroke-width="0.5" stroke-dasharray="3,3"/>
+<text x="547.1" y="470.8" text-anchor="middle" font-size="11" font-family="system-ui" fill="#666" transform="rotate(5.0,547.1,470.8)">1.02m</text>
+<text x="400.0" y="229.9" text-anchor="middle" font-size="18" font-weight="bold" font-family="system-ui" fill="#333">12.5 m²</text>
+<text x="400.0" y="247.9" text-anchor="middle" font-size="12" font-family="system-ui" fill="#999">(135 ft²)</text>
+<line x1="80" y1="566.9346290047222" x2="180" y2="566.9346290047222" stroke="#666" stroke-width="2"/>
+<line x1="80" y1="561.9346290047222" x2="80" y2="571.9346290047222" stroke="#666" stroke-width="1"/>
+<line x1="180" y1="561.9346290047222" x2="180" y2="571.9346290047222" stroke="#666" stroke-width="1"/>
+<text x="130.0" y="581.9346290047222" text-anchor="middle" font-size="10" fill="#666">1m</text>
+</svg>

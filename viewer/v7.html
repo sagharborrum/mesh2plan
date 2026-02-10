@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mesh2plan v7 — Connected Floor Plan + Doors</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a1a2e; color: #eee; font-family: system-ui, sans-serif; overflow: hidden; }
+#container { display: flex; width: 100vw; height: 100vh; }
+#view3d { flex: 1; position: relative; }
+#sidebar { width: 420px; display: flex; flex-direction: column; background: #0f0f24; border-left: 1px solid rgba(255,255,255,0.08); }
+#floorplan { flex: 1; position: relative; }
+#floorplan canvas { width: 100%; height: 100%; }
+#fp-header { position: absolute; top: 0; left: 0; right: 0; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; background: rgba(15,15,36,0.92); z-index: 2; }
+#fp-title { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 1px; }
+#fp-info { font-size: 11px; color: #888; }
+#controls { position: absolute; top: 16px; left: 16px; z-index: 10; background: rgba(15,15,36,0.94); border-radius: 12px; padding: 14px 16px; min-width: 220px; backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); }
+#controls h2 { font-size: 12px; margin-bottom: 10px; color: #555; text-transform: uppercase; letter-spacing: 1.5px; }
+.layer { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; cursor: pointer; font-size: 12px; }
+.layer input { cursor: pointer; } .layer label { cursor: pointer; flex: 1; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.sep { border-top: 1px solid rgba(255,255,255,0.06); margin: 8px 0; }
+.srow { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; font-size: 11px; color: #888; }
+.srow label { min-width: 55px; } .srow input[type=range] { flex: 1; }
+#info { position: absolute; bottom: 16px; left: 16px; z-index: 10; background: rgba(15,15,36,0.92); border-radius: 8px; padding: 7px 12px; font-size: 11px; color: #666; border: 1px solid rgba(255,255,255,0.06); }
+#loading { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 100; display: flex; align-items: center; justify-content: center; background: #1a1a2e; font-size: 14px; color: #666; }
+#loading.hidden { display: none; }
+#stats { padding: 10px 16px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 11px; color: #555; line-height: 1.8; }
+#stats .row { display: flex; justify-content: space-between; } #stats .val { color: #999; font-weight: 500; }
+.btn-row { padding: 8px 16px; display: flex; gap: 8px; }
+.btn-row button { flex: 1; padding: 6px 10px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); color: #aaa; border-radius: 6px; cursor: pointer; font-size: 11px; }
+.btn-row button:hover { background: rgba(255,255,255,0.1); color: #eee; }
+</style>
+</head>
+<body>
+<div id="loading">Loading textured mesh...</div>
+<div id="container">
+  <div id="view3d">
+    <div id="controls">
+      <h2>mesh2plan v7</h2>
+      <div id="layers"></div>
+      <div class="sep"></div>
+      <div class="srow"><label>Mesh</label><input type="range" id="meshOpacity" min="0" max="100" value="55"></div>
+      <div class="srow"><label>Planes</label><input type="range" id="planeOpacity" min="0" max="100" value="25"></div>
+      <div class="srow"><label>Wire</label><input type="checkbox" id="wireframe"></div>
+    </div>
+    <div id="info">Loading...</div>
+  </div>
+  <div id="sidebar">
+    <div id="floorplan">
+      <div id="fp-header"><span id="fp-title">Floor Plan</span><span id="fp-info"></span></div>
+      <canvas id="fpCanvas"></canvas>
+    </div>
+    <div class="btn-row">
+      <button onclick="downloadSVG()">⬇ SVG</button>
+      <button onclick="downloadJSON()">⬇ JSON</button>
+    </div>
+    <div id="stats"></div>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" }}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
+
+const DATA = '../data/room_scan/2026_02_09_19_03_38/';
+const CC = {
+  floor: { h: 0x4CAF50, c: '#4CAF50' }, ceiling: { h: 0x2196F3, c: '#2196F3' },
+  wall: { h: 0xFF9800, c: '#FF9800' }, unknown: { h: 0x9C27B0, c: '#9C27B0' },
+  wallLine: { h: 0x00E5FF, c: '#00E5FF' },
+  room: { h: 0x00E5FF, c: '#00E5FF' },
+  dim: { c: '#FFD54F' },
+  door: { h: 0x2196F3, c: '#2196F3' },
+  window: { h: 0x4CAF50, c: '#4CAF50' },
+};
+
+const container = document.getElementById('view3d');
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x1a1a2e);
+const camera = new THREE.PerspectiveCamera(60, 1, 0.01, 200);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+container.appendChild(renderer.domElement);
+const ctrl = new OrbitControls(camera, renderer.domElement);
+ctrl.enableDamping = true; ctrl.dampingFactor = 0.05;
+scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+const dl = new THREE.DirectionalLight(0xffffff, 0.6); dl.position.set(5,8,5); scene.add(dl);
+const grid = new THREE.GridHelper(20, 40, 0x333355, 0x222244); scene.add(grid);
+const meshGroup = new THREE.Group(); scene.add(meshGroup);
+const planeGroups = {};
+const wallLines3D = new THREE.Group(); scene.add(wallLines3D);
+const roomOutline3D = new THREE.Group(); scene.add(roomOutline3D);
+const gaps3D = new THREE.Group(); scene.add(gaps3D);
+let meshCenter = new THREE.Vector3(), floorYoff = 0, data = null;
+
+function resize() {
+  const w = container.clientWidth, h = container.clientHeight;
+  camera.aspect = w/h; camera.updateProjectionMatrix();
+  renderer.setSize(w, h); renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+}
+window.addEventListener('resize', () => { resize(); drawFP(); }); resize();
+
+const mtl = new MTLLoader(); mtl.setPath(DATA);
+mtl.load('textured_output.mtl', mats => {
+  mats.preload();
+  const ol = new OBJLoader(); ol.setMaterials(mats); ol.setPath(DATA);
+  ol.load('textured_output.obj', o => {
+    const box = new THREE.Box3().setFromObject(o);
+    meshCenter = box.getCenter(new THREE.Vector3());
+    o.position.sub(meshCenter);
+    const b2 = new THREE.Box3().setFromObject(o);
+    floorYoff = b2.min.y; o.position.y -= floorYoff;
+    const sz = b2.getSize(new THREE.Vector3());
+    o.traverse(c => { if (c.isMesh) { c.material.transparent = true; c.material.opacity = 0.55; c.material.side = THREE.DoubleSide; }});
+    meshGroup.add(o);
+    ctrl.target.set(0, sz.y/2, 0);
+    camera.position.set(sz.x*0.8, sz.y*0.8, sz.z*0.8); ctrl.update();
+    let vc = 0; o.traverse(c => { if (c.isMesh) vc += c.geometry.attributes.position.count; });
+    document.getElementById('info').textContent = `${vc.toLocaleString()} verts | ${sz.x.toFixed(1)}×${sz.y.toFixed(1)}×${sz.z.toFixed(1)}m`;
+    document.getElementById('loading').classList.add('hidden');
+    load();
+  });
+});
+
+function xf3(x, y, z) { return new THREE.Vector3(x - meshCenter.x, y - meshCenter.y - floorYoff, z - meshCenter.z); }
+function xfXZ(xz) { return new THREE.Vector3(xz[0] - meshCenter.x, 0.02, xz[1] - meshCenter.z); }
+
+async function load() {
+  const r = await fetch('../output/floorplan_v7.json');
+  data = await r.json();
+  buildPlanes(data.planes);
+  buildWallLines3D(data.walls);
+  buildRoom3D(data.room);
+  buildGaps3D(data.gaps || []);
+  buildUI(data.planes);
+  drawFP(); updateStats();
+}
+
+function buildPlanes(planes) {
+  for (const pl of planes) {
+    const t = pl.type;
+    if (!planeGroups[t]) { planeGroups[t] = new THREE.Group(); scene.add(planeGroups[t]); }
+    const bnd = pl.boundary; if (!bnd || bnd.length < 3) continue;
+    const ct = new THREE.Vector3(...pl.centroid);
+    const bu = new THREE.Vector3(...pl.basis_u), bv = new THREE.Vector3(...pl.basis_v);
+    const col = CC[t]?.h || CC.unknown.h;
+    const sh = new THREE.Shape();
+    const p2 = bnd.map(p => { const v = new THREE.Vector3(...p).sub(ct); return new THREE.Vector2(v.dot(bu), v.dot(bv)); });
+    sh.moveTo(p2[0].x, p2[0].y); p2.slice(1).forEach(p => sh.lineTo(p.x, p.y));
+    const g = new THREE.ShapeGeometry(sh);
+    const pos = g.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const u = pos.getX(i), v = pos.getY(i);
+      const p = ct.clone().add(bu.clone().multiplyScalar(u)).add(bv.clone().multiplyScalar(v));
+      const tp = xf3(p.x, p.y, p.z); pos.setXYZ(i, tp.x, tp.y, tp.z);
+    }
+    g.computeVertexNormals();
+    planeGroups[t].add(new THREE.Mesh(g, new THREE.MeshPhongMaterial({ color: col, transparent: true, opacity: 0.25, side: THREE.DoubleSide, depthWrite: false })));
+  }
+}
+
+function buildWallLines3D(walls) {
+  const wallH = data.mesh.bounds_max[1] - data.mesh.bounds_min[1];
+  for (const w of walls) {
+    const s = xfXZ(w.start), e = xfXZ(w.end);
+    wallLines3D.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([s, e]),
+      new THREE.LineBasicMaterial({ color: CC.wallLine.h, linewidth: 2 })));
+    const sTop = s.clone(); sTop.y = wallH + floorYoff;
+    const eTop = e.clone(); eTop.y = wallH + floorYoff;
+    wallLines3D.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([sTop, eTop]),
+      new THREE.LineBasicMaterial({ color: CC.wallLine.h, opacity: 0.3, transparent: true })));
+    wallLines3D.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([s, sTop]),
+      new THREE.LineBasicMaterial({ color: CC.wallLine.h, opacity: 0.15, transparent: true })));
+    wallLines3D.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([e, eTop]),
+      new THREE.LineBasicMaterial({ color: CC.wallLine.h, opacity: 0.15, transparent: true })));
+  }
+}
+
+function buildRoom3D(room) {
+  if (!room?.exterior) return;
+  const pts = room.exterior.map(p => xfXZ(p));
+  roomOutline3D.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+    new THREE.LineBasicMaterial({ color: CC.room.h, opacity: 0.5, transparent: true, linewidth: 2 })));
+  // Semi-transparent floor fill
+  const shape = new THREE.Shape(room.exterior.map(p => new THREE.Vector2(p[0] - meshCenter.x, p[1] - meshCenter.z)));
+  const fillGeo = new THREE.ShapeGeometry(shape);
+  fillGeo.rotateX(-Math.PI/2);
+  fillGeo.translate(0, 0.01, 0);
+  roomOutline3D.add(new THREE.Mesh(fillGeo, new THREE.MeshBasicMaterial({ color: CC.room.h, transparent: true, opacity: 0.06, side: THREE.DoubleSide })));
+}
+
+function buildGaps3D(gaps) {
+  const doorH = 2.1; // door height in meters
+  for (const g of gaps) {
+    const s = xfXZ(g.start), e = xfXZ(g.end);
+    const col = g.type === 'door' ? CC.door.h : CC.window.h;
+    // Line on floor
+    gaps3D.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([s, e]),
+      new THREE.LineBasicMaterial({ color: col, linewidth: 3 })));
+    if (g.type === 'door') {
+      // Door rectangle in 3D
+      const sTop = s.clone(); sTop.y = doorH;
+      const eTop = e.clone(); eTop.y = doorH;
+      const geo = new THREE.BufferGeometry().setFromPoints([s, e, eTop, sTop, s]);
+      gaps3D.add(new THREE.Line(geo, new THREE.LineBasicMaterial({ color: col, opacity: 0.5, transparent: true })));
+    }
+  }
+}
+
+function buildUI(planes) {
+  const el = document.getElementById('layers');
+  mk(el, 'mesh', 'Textured Mesh', '#ccc', true, on => meshGroup.visible = on);
+  mk(el, 'grid', 'Grid', '#444', true, on => grid.visible = on);
+  mk(el, 'walls3d', `Walls (${data.walls.length})`, CC.wallLine.c, true, on => wallLines3D.visible = on);
+  mk(el, 'room', 'Room outline', CC.room.c, true, on => roomOutline3D.visible = on);
+  const nDoors = (data.gaps||[]).filter(g=>g.type==='door').length;
+  const nWindows = (data.gaps||[]).filter(g=>g.type==='window').length;
+  mk(el, 'gaps', `Gaps (${nDoors}🚪 ${nWindows}🪟)`, CC.door.c, true, on => gaps3D.visible = on);
+  const cnts = {}; planes.forEach(p => cnts[p.type] = (cnts[p.type]||0)+1);
+  for (const [t,g] of Object.entries(planeGroups)) mk(el, t, `${t} (${cnts[t]||0})`, CC[t]?.c||'#999', true, on => g.visible = on);
+}
+function mk(p, id, l, c, ch, fn) {
+  const d = document.createElement('div'); d.className = 'layer';
+  d.innerHTML = `<span class="dot" style="background:${c}"></span><input type="checkbox" id="t-${id}" ${ch?'checked':''}><label for="t-${id}">${l}</label>`;
+  d.querySelector('input').addEventListener('change', e => fn(e.target.checked)); p.appendChild(d);
+}
+
+function updateStats() {
+  const room = data.room;
+  const gaps = data.gaps || [];
+  let html = '';
+  html += `<div class="row"><span>Walls</span><span class="val">${data.walls.length} segments</span></div>`;
+  html += `<div class="row"><span>Dominant angle</span><span class="val">${data.dominant_angle}°</span></div>`;
+  if (room) {
+    html += `<div class="row"><span>Area</span><span class="val">${room.area.toFixed(1)} m² (${(room.area*10.764).toFixed(0)} ft²)</span></div>`;
+    html += `<div class="row"><span>Perimeter</span><span class="val">${room.perimeter.toFixed(1)} m</span></div>`;
+    if (room.dimensions) html += `<div class="row"><span>Bounds</span><span class="val">${room.dimensions[0].toFixed(1)}×${room.dimensions[1].toFixed(1)} m</span></div>`;
+  }
+  if (gaps.length) {
+    const doors = gaps.filter(g=>g.type==='door');
+    const windows = gaps.filter(g=>g.type==='window');
+    if (doors.length) html += `<div class="row"><span>Doors</span><span class="val">${doors.map(d=>d.width.toFixed(1)+'m').join(', ')}</span></div>`;
+    if (windows.length) html += `<div class="row"><span>Windows</span><span class="val">${windows.map(w=>w.width.toFixed(1)+'m').join(', ')}</span></div>`;
+  }
+  document.getElementById('stats').innerHTML = html;
+  if (room) document.getElementById('fp-info').textContent = `${room.area.toFixed(1)} m² | ${data.walls.length} walls | ${gaps.length} openings`;
+}
+
+// Floor plan canvas
+const fpC = document.getElementById('fpCanvas'), ctx = fpC.getContext('2d');
+function drawFP() {
+  if (!data) return;
+  const panel = document.getElementById('floorplan'), dpr = devicePixelRatio;
+  fpC.width = panel.clientWidth*dpr; fpC.height = panel.clientHeight*dpr;
+  fpC.style.width = panel.clientWidth+'px'; fpC.style.height = panel.clientHeight+'px';
+  const w = fpC.width, h = fpC.height;
+  ctx.clearRect(0,0,w,h); ctx.fillStyle = '#0a0a1e'; ctx.fillRect(0,0,w,h);
+
+  const allPts = [];
+  data.walls.forEach(w => { allPts.push(w.start, w.end); });
+  if (data.room?.exterior) data.room.exterior.forEach(p => allPts.push(p));
+  if (!allPts.length) return;
+
+  const xs = allPts.map(p=>p[0]), ys = allPts.map(p=>p[1]);
+  const [mnX,mxX,mnY,mxY] = [Math.min(...xs),Math.max(...xs),Math.min(...ys),Math.max(...ys)];
+  const pad = 80*dpr;
+  const scale = Math.min((w-2*pad)/(mxX-mnX||1),(h-2*pad)/(mxY-mnY||1));
+  const cx=w/2, cy=h/2, midX=(mnX+mxX)/2, midY=(mnY+mxY)/2;
+  const tx = p => [cx+(p[0]-midX)*scale, cy+(p[1]-midY)*scale];
+
+  // Subtle grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.015)'; ctx.lineWidth = 0.5*dpr;
+  for (let x = Math.floor(mnX); x <= Math.ceil(mxX); x += 0.5) {
+    const [px] = tx([x,0]); ctx.beginPath(); ctx.moveTo(px, pad/2); ctx.lineTo(px, h-pad/2); ctx.stroke();
+  }
+  for (let y = Math.floor(mnY); y <= Math.ceil(mxY); y += 0.5) {
+    const [,py] = tx([0,y]); ctx.beginPath(); ctx.moveTo(pad/2, py); ctx.lineTo(w-pad/2, py); ctx.stroke();
+  }
+
+  // Point cloud (mid slice, very subtle)
+  if (data.slices.length > 0) {
+    const midSlice = data.slices[Math.floor(data.slices.length/2)];
+    ctx.fillStyle = 'rgba(0, 229, 255, 0.05)';
+    for (const p of midSlice.points_xz) {
+      const [px, py] = tx(p);
+      ctx.fillRect(px-0.5*dpr, py-0.5*dpr, dpr, dpr);
+    }
+  }
+
+  // Room fill
+  if (data.room?.exterior) {
+    const ext = data.room.exterior.map(tx);
+    ctx.fillStyle = 'rgba(0, 229, 255, 0.04)';
+    ctx.beginPath(); ctx.moveTo(ext[0][0], ext[0][1]);
+    ext.slice(1).forEach(p => ctx.lineTo(p[0], p[1])); ctx.closePath(); ctx.fill();
+  }
+
+  // Wall segments (thick architectural style)
+  const WALL_THICK = 0.12 * scale;
+  for (const wall of data.walls) {
+    const [x1,y1] = tx(wall.start);
+    const [x2,y2] = tx(wall.end);
+    const dx = x2-x1, dy = y2-y1;
+    const len = Math.sqrt(dx*dx+dy*dy);
+    if (len < 1) continue;
+    const nx = -dy/len * WALL_THICK/2;
+    const ny = dx/len * WALL_THICK/2;
+    
+    // Filled wall
+    ctx.fillStyle = 'rgba(0, 229, 255, 0.2)';
+    ctx.beginPath();
+    ctx.moveTo(x1+nx, y1+ny); ctx.lineTo(x2+nx, y2+ny);
+    ctx.lineTo(x2-nx, y2-ny); ctx.lineTo(x1-nx, y1-ny);
+    ctx.closePath(); ctx.fill();
+    
+    // Wall edges
+    ctx.strokeStyle = CC.wallLine.c; ctx.lineWidth = 1.5*dpr; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x1+nx, y1+ny); ctx.lineTo(x2+nx, y2+ny); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x1-nx, y1-ny); ctx.lineTo(x2-nx, y2-ny); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x1+nx, y1+ny); ctx.lineTo(x1-nx, y1-ny); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x2+nx, y2+ny); ctx.lineTo(x2-nx, y2-ny); ctx.stroke();
+  }
+
+  // Gaps (doors + windows)
+  for (const gap of (data.gaps || [])) {
+    const [x1,y1] = tx(gap.start);
+    const [x2,y2] = tx(gap.end);
+    const dx = x2-x1, dy = y2-y1;
+    const len = Math.sqrt(dx*dx+dy*dy);
+    if (len < 2) continue;
+
+    if (gap.type === 'door') {
+      // Clear the wall area
+      const nx = -dy/len * WALL_THICK/2;
+      const ny = dx/len * WALL_THICK/2;
+      ctx.fillStyle = '#0a0a1e';
+      ctx.beginPath();
+      ctx.moveTo(x1+nx*1.2, y1+ny*1.2); ctx.lineTo(x2+nx*1.2, y2+ny*1.2);
+      ctx.lineTo(x2-nx*1.2, y2-ny*1.2); ctx.lineTo(x1-nx*1.2, y1-ny*1.2);
+      ctx.closePath(); ctx.fill();
+      
+      // Door arc
+      ctx.strokeStyle = CC.door.c; ctx.lineWidth = 1.5*dpr;
+      ctx.setLineDash([]);
+      const r = len;
+      const angle = Math.atan2(dy, dx);
+      ctx.beginPath();
+      ctx.arc(x1, y1, r, angle, angle - Math.PI/2, true);
+      ctx.stroke();
+      // Door line
+      ctx.beginPath(); ctx.moveTo(x1, y1);
+      ctx.lineTo(x1 + Math.cos(angle - Math.PI/2)*r, y1 + Math.sin(angle - Math.PI/2)*r);
+      ctx.stroke();
+      
+      // Label
+      const mx = (x1+x2)/2, my = (y1+y2)/2;
+      ctx.fillStyle = CC.door.c; ctx.font = `${9*dpr}px system-ui`; ctx.textAlign = 'center';
+      ctx.fillText(`🚪${gap.width.toFixed(2)}m`, mx, my - 8*dpr);
+    } else if (gap.type === 'window') {
+      // Window: parallel lines
+      const nx = -dy/len * WALL_THICK*0.8;
+      const ny = dx/len * WALL_THICK*0.8;
+      ctx.strokeStyle = CC.window.c; ctx.lineWidth = 2*dpr; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(x1+nx/2, y1+ny/2); ctx.lineTo(x2+nx/2, y2+ny/2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x1-nx/2, y1-ny/2); ctx.lineTo(x2-nx/2, y2-ny/2); ctx.stroke();
+      // Cross line
+      ctx.lineWidth = 1*dpr;
+      const mx = (x1+x2)/2, my = (y1+y2)/2;
+      ctx.beginPath(); ctx.moveTo(mx+nx/2, my+ny/2); ctx.lineTo(mx-nx/2, my-ny/2); ctx.stroke();
+      
+      ctx.fillStyle = CC.window.c; ctx.font = `${9*dpr}px system-ui`; ctx.textAlign = 'center';
+      ctx.fillText(`🪟${gap.width.toFixed(2)}m`, mx, my - 8*dpr);
+    }
+  }
+  ctx.setLineDash([]);
+
+  // Measurements
+  ctx.font = `bold ${10*dpr}px system-ui`;
+  for (const m of (data.measurements || [])) {
+    const [x1,y1] = tx(m.start);
+    const [x2,y2] = tx(m.end);
+    const dx = x2-x1, dy = y2-y1;
+    const len = Math.sqrt(dx*dx+dy*dy);
+    if (len < 30*dpr) continue;
+    const nx = -dy/len, ny = dx/len;
+    const off = 22*dpr;
+    
+    ctx.strokeStyle = 'rgba(255,213,79,0.4)'; ctx.lineWidth = 0.8*dpr; ctx.setLineDash([3*dpr, 3*dpr]);
+    ctx.beginPath(); ctx.moveTo(x1+nx*off, y1+ny*off); ctx.lineTo(x2+nx*off, y2+ny*off); ctx.stroke();
+    ctx.setLineDash([]);
+    
+    ctx.lineWidth = 0.8*dpr;
+    ctx.beginPath(); ctx.moveTo(x1+nx*(off-4*dpr), y1+ny*(off-4*dpr)); ctx.lineTo(x1+nx*(off+4*dpr), y1+ny*(off+4*dpr)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x2+nx*(off-4*dpr), y2+ny*(off-4*dpr)); ctx.lineTo(x2+nx*(off+4*dpr), y2+ny*(off+4*dpr)); ctx.stroke();
+    
+    ctx.fillStyle = CC.dim.c;
+    ctx.save();
+    const mx = (x1+x2)/2+nx*off, my = (y1+y2)/2+ny*off;
+    ctx.translate(mx, my);
+    let angle = Math.atan2(dy, dx);
+    if (angle > Math.PI/2) angle -= Math.PI;
+    if (angle < -Math.PI/2) angle += Math.PI;
+    ctx.rotate(angle);
+    ctx.textAlign = 'center';
+    ctx.fillText(`${m.length.toFixed(2)}m`, 0, -4*dpr);
+    ctx.restore();
+  }
+
+  // Room area center
+  if (data.room) {
+    const ext = data.room.exterior.map(tx);
+    const rcx = ext.reduce((s,p) => s+p[0], 0)/ext.length;
+    const rcy = ext.reduce((s,p) => s+p[1], 0)/ext.length;
+    ctx.fillStyle = 'rgba(0, 229, 255, 0.8)'; ctx.font = `bold ${16*dpr}px system-ui`; ctx.textAlign = 'center';
+    ctx.fillText(`${data.room.area.toFixed(1)} m²`, rcx, rcy);
+    ctx.font = `${11*dpr}px system-ui`; ctx.fillStyle = 'rgba(0, 229, 255, 0.4)';
+    ctx.fillText(`(${(data.room.area*10.764).toFixed(0)} ft²)`, rcx, rcy+18*dpr);
+    ctx.textAlign = 'start';
+  }
+
+  // Scale bar
+  const bPx=1*scale, bY=h-20*dpr, bX=20*dpr;
+  ctx.strokeStyle='#555'; ctx.lineWidth=1.5*dpr;
+  ctx.beginPath(); ctx.moveTo(bX,bY); ctx.lineTo(bX+bPx,bY); ctx.stroke();
+  [bX, bX+bPx].forEach(x => { ctx.beginPath(); ctx.moveTo(x,bY-3*dpr); ctx.lineTo(x,bY+3*dpr); ctx.stroke(); });
+  ctx.fillStyle='#555'; ctx.font=`${9*dpr}px system-ui`; ctx.fillText('1m',bX+bPx/2-6*dpr,bY+14*dpr);
+}
+
+document.getElementById('meshOpacity').addEventListener('input', e => { meshGroup.traverse(c => { if (c.isMesh) c.material.opacity = e.target.value/100; }); });
+document.getElementById('planeOpacity').addEventListener('input', e => { const v=e.target.value/100; Object.values(planeGroups).forEach(g => g.traverse(c => { if (c.isMesh) c.material.opacity = v; })); });
+document.getElementById('wireframe').addEventListener('change', e => { meshGroup.traverse(c => { if (c.isMesh) c.material.wireframe = e.target.checked; }); });
+
+window.downloadSVG = () => { window.open('../output/floorplan_v7.svg'); };
+window.downloadJSON = () => {
+  const a = document.createElement('a');
+  a.href = '../output/floorplan_v7.json'; a.download = 'floorplan.json'; a.click();
+};
+
+(function a() { requestAnimationFrame(a); ctrl.update(); renderer.render(scene, camera); })();
+</script>
+</body>
+</html>
