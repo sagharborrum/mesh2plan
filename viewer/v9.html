@@ -833,6 +833,27 @@ function drawFP() {
     ctx.beginPath(); ctx.moveTo(x1+nx, y1+ny); ctx.lineTo(x2+nx, y2+ny);
     ctx.lineTo(x2-nx, y2-ny); ctx.lineTo(x1-nx, y1-ny); ctx.closePath(); ctx.fill();
     
+    // Hatch pattern inside wall (architectural style)
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x1+nx, y1+ny); ctx.lineTo(x2+nx, y2+ny);
+    ctx.lineTo(x2-nx, y2-ny); ctx.lineTo(x1-nx, y1-ny);
+    ctx.closePath(); ctx.clip();
+    ctx.strokeStyle = darkTheme ? 'rgba(0,229,255,0.08)' : 'rgba(0,0,0,0.06)';
+    ctx.lineWidth = 0.5*dpr;
+    const hatchSpacing = 4*dpr;
+    const hx1 = Math.min(x1+nx,x1-nx,x2+nx,x2-nx);
+    const hy1 = Math.min(y1+ny,y1-ny,y2+ny,y2-ny);
+    const hx2 = Math.max(x1+nx,x1-nx,x2+nx,x2-nx);
+    const hy2 = Math.max(y1+ny,y1-ny,y2+ny,y2-ny);
+    for (let d = hx1+hy1; d < hx2+hy2; d += hatchSpacing) {
+      ctx.beginPath();
+      ctx.moveTo(Math.max(hx1, d-hy2), Math.max(hy1, d-hx2));
+      ctx.lineTo(Math.min(hx2, d-hy1), Math.min(hy2, d-hx1));
+      ctx.stroke();
+    }
+    ctx.restore();
+    
     // Wall edges
     ctx.strokeStyle = wallStroke; ctx.lineWidth = 1.5*dpr; ctx.lineCap = 'round';
     [[x1+nx,y1+ny,x2+nx,y2+ny],[x1-nx,y1-ny,x2-nx,y2-ny],[x1+nx,y1+ny,x1-nx,y1-ny],[x2+nx,y2+ny,x2-nx,y2-ny]].forEach(([a,b,c,d]) => {

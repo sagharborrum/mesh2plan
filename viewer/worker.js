@@ -38,7 +38,10 @@ self.onmessage = function(e) {
   
   const xWalls = findWalls(rotated, 0);
   const zWalls = findWalls(rotated, 1);
-  let walls = mergeWalls([...xWalls, ...zWalls]);
+  const allRaw = [...xWalls, ...zWalls];
+  const boundary = filterBoundaryWalls(allRaw, rotated);
+  self.postMessage({ type: 'progress', msg: `Filtered ${allRaw.length} → ${boundary.length} boundary walls`, pct: 85 });
+  let walls = mergeWalls(boundary);
   
   // Convert coords back
   for (const w of walls) {
@@ -51,7 +54,8 @@ self.onmessage = function(e) {
     }
   }
   
-  // Room polygon — walk walls to build closed outline
+  // Room polygon — build from wall intersections with rectilinear snapping
+  self.postMessage({ type: 'progress', msg: 'Building room polygon...', pct: 90 });
   let room = buildRoomPolygon(walls, angleRad);
   
   // Gaps
@@ -181,6 +185,28 @@ function findWalls(rotated, axis, minInliers=10, distThresh=0.04) {
     }
   }
   return walls;
+}
+
+function filterBoundaryWalls(walls, rotated) {
+  // Real walls are at room boundaries — points primarily on one side
+  // Furniture creates peaks with points on both sides
+  return walls.filter(w => {
+    const axis = w.axis === 'x' ? 0 : 1;
+    const pos = w.position;
+    const band = 0.3; // check 30cm on each side
+    let below = 0, above = 0;
+    for (const p of rotated) {
+      const d = p[axis] - pos;
+      if (d < -0.06 && d > -band) below++;
+      else if (d > 0.06 && d < band) above++;
+    }
+    // A real boundary wall has asymmetric density — most points on one side
+    const total = below + above;
+    if (total < 20) return true; // not enough data, keep it
+    const ratio = Math.min(below, above) / Math.max(below, above);
+    // ratio < 0.4 means mostly one-sided (wall), > 0.6 means both sides (furniture)
+    return ratio < 0.5;
+  });
 }
 
 function mergeWalls(walls, dist=0.15) {
