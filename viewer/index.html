@@ -554,6 +554,28 @@ header .desc {
         <div class="version-desc">First multiroom approach. Room mask + interior wall classification + connected component splitting. Per-room polygon extraction with wall snapping. Door detection at wall gaps.</div>
         <div class="version-meta">Edge + Hough + Mask Split → 16 rooms detected</div>
       </div>
+      <div class="version-card" onclick="window.location.href='v27e.html'">
+        <div class="card-header">
+          <div class="version-number">v27e</div>
+          <div class="version-badges">
+            <span class="badge" style="background:rgba(255,0,128,0.2);color:#FF0080;">NEW</span>
+          </div>
+        </div>
+        <div class="version-title">Density-Based Room Detection</div>
+        <div class="version-desc">Walls = high density, rooms = low density gaps. Threshold + directional morphological closing + connected components. No Hough lines needed.</div>
+        <div class="version-meta">Density Gaps → 5 rooms (multiroom), 1 room (single)</div>
+      </div>
+      <div class="version-card" onclick="window.location.href='v27f.html'">
+        <div class="card-header">
+          <div class="version-number">v27f</div>
+          <div class="version-badges">
+            <span class="badge" style="background:rgba(255,0,128,0.2);color:#FF0080;">NEW</span>
+          </div>
+        </div>
+        <div class="version-title">Watershed Room Segmentation</div>
+        <div class="version-desc">OpenCV watershed on density image. Wall ridges as barriers, distance-transform room centers as seeds. Handles irregular room shapes naturally.</div>
+        <div class="version-meta">Watershed → 6 rooms (multiroom), 2 rooms (single)</div>
+      </div>
     </div>
   </div>
 

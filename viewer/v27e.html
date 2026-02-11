@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mesh2plan v27e — Density-Based Room Detection</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a1a2e; color: #eee; font-family: system-ui, sans-serif; padding: 20px; }
+h1 { font-size: 24px; color: #00E5FF; margin-bottom: 8px; }
+.desc { color: #aaa; font-size: 14px; line-height: 1.6; margin-bottom: 20px; max-width: 900px; }
+.results { display: flex; gap: 20px; flex-wrap: wrap; }
+.card { background: rgba(20,20,40,0.8); border-radius: 12px; padding: 16px; border: 1px solid rgba(255,255,255,0.1); flex: 1; min-width: 400px; }
+.card h2 { font-size: 16px; color: #888; margin-bottom: 12px; }
+.card img { width: 100%; border-radius: 8px; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.stat { background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 6px; }
+.stat-label { font-size: 11px; color: #666; text-transform: uppercase; }
+.stat-value { font-size: 18px; font-weight: bold; color: #00E5FF; }
+.badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-right: 6px; }
+.badge-new { background: rgba(255,0,128,0.2); color: #FF0080; }
+.badge-approach { background: rgba(255,165,0,0.2); color: #FFA500; }
+nav { margin-bottom: 20px; }
+nav a { color: #00E5FF; margin-right: 12px; font-size: 13px; }
+h3 { color: #FFA500; margin: 20px 0 10px; }
+</style>
+</head>
+<body>
+<nav><a href="index.html">← All Versions</a> <a href="v27.html">v27</a> <a href="v27e.html">v27e</a> <a href="v27f.html">v27f</a></nav>
+<h1>v27e — Density-Based Room Detection</h1>
+<span class="badge badge-new">NEW</span>
+<span class="badge badge-approach">Density Gaps</span>
+<div class="desc">
+<p>Instead of edge→Hough→split, this approach uses the vertex density image directly.
+Walls have HIGH vertex density; room interiors have LOW density. By thresholding high
+to find wall pixels, then inverting to find the gaps between walls, we get rooms as
+connected components without any Hough line detection.</p>
+<p>Uses directional morphological closing to connect wall fragments along their axis,
+then finds low-density gaps = rooms.</p>
+</div>
+
+<h3>Multiroom (target: 5-7 rooms)</h3>
+<div class="results">
+<div class="card">
+<h2>5-Panel Analysis</h2>
+<img src="../results/v27e/multiroom/v27e_export_refined_floorplan.png" alt="v27e multiroom">
+<div class="stats">
+<div class="stat"><div class="stat-label">Rooms</div><div class="stat-value">5</div></div>
+<div class="stat"><div class="stat-label">Total Area</div><div class="stat-value">14.9 m²</div></div>
+</div>
+</div>
+</div>
+
+<h3>Single Room (target: 1 room, 10.4 m²)</h3>
+<div class="results">
+<div class="card">
+<h2>5-Panel Analysis</h2>
+<img src="../results/v27e/single/v27e_export_refined_floorplan.png" alt="v27e single">
+<div class="stats">
+<div class="stat"><div class="stat-label">Rooms</div><div class="stat-value">1</div></div>
+<div class="stat"><div class="stat-label">Total Area</div><div class="stat-value">4.2 m²</div></div>
+</div>
+</div>
+</div>
+</body>
+</html>

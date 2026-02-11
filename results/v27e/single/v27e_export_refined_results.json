@@ -1,0 +1,31 @@
+{
+  "summary": {
+    "approach": "v27e_density_rooms",
+    "num_rooms": 1,
+    "total_area_m2": 4.2
+  },
+  "rooms": [
+    {
+      "name": "Room 1",
+      "area_m2": 4.2,
+      "polygon": [
+        [
+          0.446,
+          -2.553
+        ],
+        [
+          2.706,
+          -2.553
+        ],
+        [
+          2.706,
+          -0.493
+        ],
+        [
+          0.446,
+          -0.493
+        ]
+      ]
+    }
+  ]
+}
