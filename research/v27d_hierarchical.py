@@ -129,8 +129,8 @@ def extract_wall_segments(nms_edges, x_min, z_min, cell_size, min_length=0.3):
             x_positions.append(((wx1+wx2)/2, length))
         else:
             z_positions.append(((wz1+wz2)/2, length))
-    x_walls = cluster_positions(x_positions, 0.15, min_total_length=0.8)
-    z_walls = cluster_positions(z_positions, 0.15, min_total_length=3.0)
+    x_walls = cluster_positions(x_positions, 0.15, min_total_length=0.5)
+    z_walls = cluster_positions(z_positions, 0.15, min_total_length=0.5)
     return x_walls, z_walls, all_segments
 
 def cluster_positions(positions, dist_threshold=0.15, min_total_length=0.8):
@@ -259,13 +259,15 @@ def score_split(room_mask_region, split_pos, axis, nms_edges, x_min, z_min, cell
     total = area1 + area2
     balance = min(area1, area2) / total  # 0.5 = perfect split
     
-    score = (0.3 + 0.7 * edge_evidence) * (0.3 + 0.7 * balance * 2) * min(area2, 20)
+    # Edge evidence is king — a wall with strong edges should always score high
+    # Balance matters less (real rooms can be very different sizes)
+    score = (0.1 + 0.9 * edge_evidence) * (0.5 + 0.5 * balance) * min(area2, 20)
     
     return score, area1, area2
 
 
 def hierarchical_split(room_mask, x_walls, z_walls, nms_edges, x_min, z_min, cell_size,
-                        min_room_area=6.0, min_split_score=2.5, max_rooms=8):
+                        min_room_area=3.0, min_split_score=1.0, max_rooms=10):
     """Hierarchically split rooms using wall candidates."""
     nz_img, nx_img = room_mask.shape
     
@@ -410,23 +412,90 @@ def hierarchical_split(room_mask, x_walls, z_walls, nms_edges, x_min, z_min, cel
 # ─── Polygon extraction ───
 
 def extract_room_polygon(room_component, x_walls, z_walls, x_min, z_min, cell_size):
+    """Extract a clean rectilinear polygon from a room mask component."""
     mask_u8 = (room_component > 0).astype(np.uint8) * 255
     contours, _ = cv2.findContours(mask_u8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not contours: return []
     contour = max(contours, key=cv2.contourArea)
+    
+    # Convert to world coordinates
     world_pts = [[x_min + pt[0][0] * cell_size, z_min + pt[0][1] * cell_size] for pt in contour]
     if len(world_pts) < 3: return world_pts
-    pts_arr = np.array(world_pts, dtype=np.float32)
-    simplified = cv2.approxPolyDP(pts_arr, 0.15, True)
-    poly = simplified[:, 0].tolist()
+    
+    # Get bounding box from the component
+    rows, cols = np.where(room_component > 0)
+    if len(rows) == 0: return []
+    bbox_left = x_min + cols.min() * cell_size
+    bbox_right = x_min + cols.max() * cell_size
+    bbox_bottom = z_min + rows.min() * cell_size
+    bbox_top = z_min + rows.max() * cell_size
+    
+    # Snap bbox to nearest Hough walls
     all_x, all_z = sorted(x_walls), sorted(z_walls)
-    snapped = [[snap_to_nearest(p[0], all_x, 0.25), snap_to_nearest(p[1], all_z, 0.25)] for p in poly]
-    snapped = axis_snap_polygon(snapped)
-    cleaned = [snapped[0]]
-    for p in snapped[1:]:
-        if abs(p[0] - cleaned[-1][0]) > 0.01 or abs(p[1] - cleaned[-1][1]) > 0.01:
-            cleaned.append(p)
-    return cleaned
+    left = snap_to_nearest(bbox_left, all_x, 0.3)
+    right = snap_to_nearest(bbox_right, all_x, 0.3)
+    bottom = snap_to_nearest(bbox_bottom, all_z, 0.3)
+    top = snap_to_nearest(bbox_top, all_z, 0.3)
+    
+    # Check for L-shape or step: sample columns to see if room height varies
+    # Sample at 25% and 75% of width
+    nz_img, nx_img = room_component.shape
+    col_25 = int((left + (right - left) * 0.25 - x_min) / cell_size)
+    col_75 = int((left + (right - left) * 0.75 - x_min) / cell_size)
+    col_25 = max(0, min(col_25, nx_img - 1))
+    col_75 = max(0, min(col_75, nx_img - 1))
+    
+    def col_extent(c):
+        col_data = room_component[:, max(0, c-2):min(nx_img, c+3)]
+        occ = np.where(np.any(col_data > 0, axis=1))[0]
+        if len(occ) == 0: return None, None
+        return z_min + occ.min() * cell_size, z_min + occ.max() * cell_size
+    
+    bot25, top25 = col_extent(col_25)
+    bot75, top75 = col_extent(col_75)
+    
+    # If heights differ significantly, try L-shape
+    if top25 is not None and top75 is not None:
+        top25_snap = snap_to_nearest(top25, all_z, 0.3)
+        top75_snap = snap_to_nearest(top75, all_z, 0.3)
+        
+        if abs(top25_snap - top75_snap) > 0.4:
+            # L-shape! Find step position by scanning columns
+            main_top = min(top25_snap, top75_snap)
+            ext_top = max(top25_snap, top75_snap)
+            main_top_row = int((main_top - z_min) / cell_size)
+            
+            # Find step X
+            step_x = None
+            if top75_snap > top25_snap:
+                # Extension on right
+                for ci in range(col_75, col_25, -1):
+                    check_row = min(main_top_row + 3, nz_img - 1)
+                    if room_component[check_row, ci] > 0:
+                        pass
+                    else:
+                        step_x = x_min + ci * cell_size
+                        break
+            else:
+                for ci in range(col_25, col_75):
+                    check_row = min(main_top_row + 3, nz_img - 1)
+                    if room_component[check_row, ci] > 0:
+                        pass
+                    else:
+                        step_x = x_min + ci * cell_size
+                        break
+            
+            if step_x:
+                step_x = snap_to_nearest(step_x, all_x, 0.3)
+                if top75_snap > top25_snap:
+                    return [[left, bottom], [right, bottom], [right, ext_top],
+                            [step_x, ext_top], [step_x, main_top], [left, main_top]]
+                else:
+                    return [[left, bottom], [right, bottom], [right, main_top],
+                            [step_x, main_top], [step_x, ext_top], [left, ext_top]]
+    
+    # Default: simple rectangle snapped to walls
+    return [[left, bottom], [right, bottom], [right, top], [left, top]]
 
 def snap_to_nearest(val, positions, tolerance=0.25):
     best, best_d = val, tolerance
@@ -531,7 +600,7 @@ def analyze_mesh(mesh_file):
 
 def visualize_results(results, output_path):
     plt.style.use('dark_background')
-    fig, axes = plt.subplots(1, 4, figsize=(36, 9))
+    fig, axes = plt.subplots(1, 5, figsize=(45, 9))
     ix_min, iz_min, cs = results['img_origin']
     
     axes[0].imshow(results['combined_edges'], cmap='inferno', origin='lower')
@@ -567,7 +636,41 @@ def visualize_results(results, output_path):
     ax2.set_title(f'v27d Hierarchical ({len(results["rooms"])} rooms)', color='white', fontsize=14)
     ax2.axis('off')
     
-    ax3 = axes[3]
+    # Panel 4: Edge + Floor Plan Overlay
+    ax_overlay = axes[3]
+    ax_overlay.set_aspect('equal'); ax_overlay.set_facecolor('black')
+    
+    # Plot NMS edges as scatter in world coords
+    nms_data = results['nms']
+    edge_rows, edge_cols = np.where(nms_data > 0.05)
+    if len(edge_rows) > 0:
+        edge_x = ix_min + edge_cols * cs
+        edge_z = iz_min + edge_rows * cs
+        intensities = nms_data[edge_rows, edge_cols]
+        ax_overlay.scatter(edge_x, edge_z, c=intensities, cmap='hot', s=0.3, alpha=0.5)
+    
+    # Overlay all room polygons
+    overlay_xs, overlay_zs = [], []
+    for i, room in enumerate(results['rooms']):
+        poly = room['polygon_rot']
+        if len(poly) < 3: continue
+        color = ROOM_COLORS[i % len(ROOM_COLORS)]
+        pc = poly + [poly[0]]
+        xs, zs = [p[0] for p in pc], [p[1] for p in pc]
+        ax_overlay.plot(xs, zs, color=color, linewidth=2.5, alpha=0.9)
+        overlay_xs.extend(xs); overlay_zs.extend(zs)
+    
+    ax_overlay.set_title('Edge + Floor Plan Overlay', color='white', fontsize=14)
+    ax_overlay.grid(True, alpha=0.2)
+    ax_overlay.set_xlabel('X (meters)')
+    ax_overlay.set_ylabel('Z (meters)')
+    if overlay_xs:
+        m = 0.5
+        ax_overlay.set_xlim(min(overlay_xs)-m, max(overlay_xs)+m)
+        ax_overlay.set_ylim(min(overlay_zs)-m, max(overlay_zs)+m)
+    
+    # Panel 5: Final floor plan
+    ax3 = axes[4]
     ax3.set_aspect('equal'); ax3.set_facecolor('#1a1a2e')
     all_x, all_z = [], []
     for i, room in enumerate(results['rooms']):
