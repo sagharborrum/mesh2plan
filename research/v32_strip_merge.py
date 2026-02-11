@@ -457,19 +457,58 @@ def detect_doors(density_img, x_min, z_min, cs, rooms_data):
     doors = []
     for i in range(len(rooms_data)):
         pi = rooms_data[i]['polygon']
+        ni = rooms_data[i]['name']
         for j in range(i+1, len(rooms_data)):
             pj = rooms_data[j]['polygon']
-            # Check all edge pairs for shared walls
+            nj = rooms_data[j]['name']
             for ei in range(len(pi)):
                 a1, a2 = pi[ei], pi[(ei+1)%len(pi)]
                 for ej in range(len(pj)):
                     b1, b2 = pj[ej], pj[(ej+1)%len(pj)]
                     door = check_shared_edge_for_door(density_img, x_min, z_min, cs, a1, a2, b1, b2)
                     if door:
+                        print(f"    Door found: {ni} ↔ {nj} at ({door['x']:.2f}, {door['z']:.2f})")
                         doors.append(door)
+    
+    # Also detect doors on exterior walls (entrance)
+    # and between hallway and rooms using mask adjacency
+    if not doors:
+        print("    No doors found from polygon edges — trying mask adjacency")
+        for i in range(len(rooms_data)):
+            if 'mask' not in rooms_data[i]: continue
+            mi = rooms_data[i]['mask']
+            pi = rooms_data[i]['polygon']
+            ni = rooms_data[i]['name']
+            di = cv2.dilate(mi.astype(np.uint8), np.ones((15,15), np.uint8))
+            for j in range(i+1, len(rooms_data)):
+                if 'mask' not in rooms_data[j]: continue
+                mj = rooms_data[j]['mask']
+                nj = rooms_data[j]['name']
+                overlap = np.sum(di & mj)
+                if overlap > 0:
+                    # Rooms are adjacent — check for door on their shared boundary
+                    # Find the boundary region
+                    boundary = di & cv2.dilate(mj.astype(np.uint8), np.ones((3,3), np.uint8))
+                    brows, bcols = np.where(boundary)
+                    if len(brows) > 0:
+                        bx = x_min + bcols.mean() * cs
+                        bz = z_min + brows.mean() * cs
+                        # Check orientation
+                        x_spread = (bcols.max() - bcols.min()) * cs
+                        z_spread = (brows.max() - brows.min()) * cs
+                        if x_spread < z_spread:
+                            orientation = 'vertical'
+                        else:
+                            orientation = 'horizontal'
+                        doors.append({
+                            'x': bx, 'z': bz, 'width': 0.8,
+                            'orientation': orientation,
+                        })
+                        print(f"    Door (mask): {ni} ↔ {nj} at ({bx:.2f}, {bz:.2f})")
+    
     return doors
 
-def check_shared_edge_for_door(density_img, x_min, z_min, cs, a1, a2, b1, b2, tol=0.2):
+def check_shared_edge_for_door(density_img, x_min, z_min, cs, a1, a2, b1, b2, tol=0.35):
     """Check if two edges share a wall with a door gap."""
     sw = max(1, int(0.08/cs))
     
