@@ -1,0 +1,50 @@
+{
+  "summary": {
+    "approach": "v27g_watershed_distxform",
+    "num_rooms": 1,
+    "num_hallways": 0,
+    "num_spaces": 1,
+    "total_area_m2": 3.4
+  },
+  "rooms": [
+    {
+      "name": "Room 1",
+      "area_m2": 3.4,
+      "is_hallway": false,
+      "polygon": [
+        [
+          0.566,
+          -2.233
+        ],
+        [
+          0.566,
+          -0.573
+        ],
+        [
+          2.686,
+          -0.613
+        ],
+        [
+          2.686,
+          -2.233
+        ]
+      ]
+    }
+  ],
+  "walls": {
+    "x_positions": [
+      -0.954,
+      -0.594,
+      0.566,
+      1.686,
+      2.266,
+      2.686
+    ],
+    "z_positions": [
+      -2.593,
+      -2.233,
+      0.067,
+      0.667
+    ]
+  }
+}

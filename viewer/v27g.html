@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mesh2plan v27g — Watershed + Distance Transform Room Detection</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a1a2e; color: #eee; font-family: system-ui, sans-serif; padding: 20px; }
+h1 { font-size: 24px; color: #00E5FF; margin-bottom: 8px; }
+.desc { color: #aaa; font-size: 14px; line-height: 1.6; margin-bottom: 20px; max-width: 900px; }
+.results { display: flex; gap: 20px; flex-wrap: wrap; }
+.card { background: rgba(20,20,40,0.8); border-radius: 12px; padding: 16px; border: 1px solid rgba(255,255,255,0.1); flex: 1; min-width: 400px; }
+.card h2 { font-size: 16px; color: #888; margin-bottom: 12px; }
+.card img { width: 100%; border-radius: 8px; }
+.stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 12px; }
+.stat { background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 6px; }
+.stat-label { font-size: 11px; color: #666; text-transform: uppercase; }
+.stat-value { font-size: 18px; font-weight: bold; color: #00E5FF; }
+.badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-right: 6px; }
+.badge-new { background: rgba(255,0,128,0.2); color: #FF0080; }
+.badge-approach { background: rgba(255,165,0,0.2); color: #FFA500; }
+nav { margin-bottom: 20px; }
+nav a { color: #00E5FF; margin-right: 12px; font-size: 13px; }
+h3 { color: #FFA500; margin: 20px 0 10px; }
+</style>
+</head>
+<body>
+<nav><a href="index.html">← All Versions</a> <a href="v27f.html">v27f</a> <a href="v27g.html">v27g</a></nav>
+<h1>v27g — Watershed + Distance Transform Room Detection</h1>
+<span class="badge badge-new">NEW</span>
+<span class="badge badge-approach">Watershed + Skeleton</span>
+<div class="desc">
+<p>Improved room segmentation using distance transform for seed finding and skeleton-based
+hallway detection. Seeds are local maxima of the distance transform (room centers far from
+walls). Watershed segments rooms, then skeleton analysis identifies narrow connecting
+passages as hallways.</p>
+<p><strong>Key improvements over v27f:</strong> Proper hallway detection via skeleton + distance
+analysis. Polygon extraction with wall snapping. Correctly identifies 3 rooms + 1 hallway
+in the multiroom mesh.</p>
+</div>
+
+<h3>Multiroom (target: 3 rooms + 1 hallway)</h3>
+<div class="results">
+<div class="card">
+<h2>5-Panel Analysis</h2>
+<img src="../results/v27g/multiroom/v27g_export_refined_floorplan.png" alt="v27g multiroom">
+<div class="stats">
+<div class="stat"><div class="stat-label">Rooms</div><div class="stat-value">3</div></div>
+<div class="stat"><div class="stat-label">Hallways</div><div class="stat-value">1</div></div>
+<div class="stat"><div class="stat-label">Total Area</div><div class="stat-value">32.9 m²</div></div>
+</div>
+</div>
+</div>
+
+<h3>Single Room (target: 1 room)</h3>
+<div class="results">
+<div class="card">
+<h2>5-Panel Analysis</h2>
+<img src="../results/v27g/single/v27g_export_refined_floorplan.png" alt="v27g single">
+<div class="stats">
+<div class="stat"><div class="stat-label">Rooms</div><div class="stat-value">1</div></div>
+<div class="stat"><div class="stat-label">Hallways</div><div class="stat-value">0</div></div>
+<div class="stat"><div class="stat-label">Total Area</div><div class="stat-value">3.4 m²</div></div>
+</div>
+</div>
+</div>
+</body>
+</html>
