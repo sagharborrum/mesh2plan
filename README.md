@@ -104,15 +104,42 @@ Systematic exploration of different algorithmic approaches:
 5. **Combining approaches** likely optimal: v11 for boundaries + v12 for openings
 6. **Defurnishing is a real problem** — scanned meshes have furniture obscuring walls
 
+### Phase 3: Multiroom floor plans (v27-v32)
+
+Expanded to apartment-scale scans with multiple rooms.
+
+**v27**: First multiroom attempt — interior wall classification + connected components. 16 rooms (over-segmented).
+
+**v27f-v27g**: Watershed segmentation — distance transform finds room centers, watershed grows to wall ridges. v27g correctly identifies 3 rooms + 1 hallway.
+
+**v27h**: Clean architectural rendering — white bg, thick walls, door arcs, pastel fills. Room detection still off (hallway too big).
+
+**v28-v28b**: Wall grid approaches — build cells between Hough walls, classify by occupancy (v28) or edge density ratio (v28b). Good separation but gaps between rooms.
+
+**v29**: Mask cut ⭐ — Fill apartment mask, cut along strongest validated Hough walls. Wall scoring = `projection_strength × longest_continuous_run`. Boundary exclusion, min separation between cuts, fragment merging.
+
+**v30**: Architectural rendering — v29 detection + clean rendering (thick wall rectangles, door arcs, scale bar, room classification).
+
+**v31**: Hallway-first (skeleton + distance transform) — failed because hallway was ~1.3m wide, too wide for narrow detection.
+
+**v32**: Strip merge ⭐⭐ — **3 rooms + 1 hallway + 1 closet = 34.7m²**. X cuts create vertical strips; center strip = hallway. Z cuts split left/right strips into rooms. Door detection via mask adjacency. **Best multiroom result.**
+
+### Key Multiroom Findings
+
+1. **Wall scoring** (`strength × max_run`) is critical for selecting which walls to cut
+2. **Strip-based merging** outperforms generic smallest-first merging
+3. **Center strip = hallway** is a reliable heuristic for apartments with central corridors
+4. **Mask adjacency** works better than polygon edge matching for door detection
+5. **Hallway detection via narrowness** fails for wider corridors (>1m) — use structural position instead
+
 ### Next Research Directions
 
-- [ ] Hybrid approach: v11 boundaries + v12 opening detection
 - [ ] Machine learning: train on known mesh/floorplan pairs
-- [ ] Multi-room segmentation via graph cuts or watershed
 - [ ] Using confidence maps from 3D Scanner App (conf_*.png)
 - [ ] Semantic understanding: classify room types, furniture vs structure
-- [ ] Real-time incremental processing
 - [ ] Comparison with RoomFormer (271⭐) end-to-end approach
+- [ ] Window detection on exterior walls
+- [ ] Dimension annotations on floor plans
 
 ## Key Approaches (Theory)
 
