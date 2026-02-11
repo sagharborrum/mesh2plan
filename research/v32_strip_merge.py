@@ -666,7 +666,19 @@ def render_architectural(rooms_data, doors, output_path, rotation_angle=0):
         ax.text(cx, cz - 0.15, f"{area:.1f} m²", ha='center', va='center',
                 fontsize=fs-1, color='#666', zorder=5)
     
-    # 5. Scale bar
+    # 5. Room dimensions (width × height below area)
+    for rd in rooms_data:
+        poly = rd['polygon']
+        if len(poly) < 3: continue
+        xs = [p[0] for p in poly]; zs = [p[1] for p in poly]
+        w = max(xs) - min(xs)
+        h = max(zs) - min(zs)
+        cx, cz = polygon_centroid(poly)
+        fs = 7 if rd['area'] > 5 else 6
+        ax.text(cx, cz - 0.35, f"{w:.1f} × {h:.1f} m", ha='center', va='center',
+                fontsize=fs, color='#999', style='italic', zorder=5)
+    
+    # 6. Scale bar
     x_range = max(all_x) - min(all_x)
     scale_len = 1.0  # 1 meter
     sx = min(all_x) + 0.3
