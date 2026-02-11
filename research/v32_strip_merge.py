@@ -383,7 +383,7 @@ def extract_and_merge_rooms(cut_mask, density_img, x_min, z_min, cell_size,
             room_type = 'hallway'
         elif max_half_width < 0.8 and aspect_ratio > 2.5:
             room_type = 'hallway'
-        elif area < 3.0:
+        elif area < 4.5:
             room_type = 'closet'
         else:
             room_type = 'room'

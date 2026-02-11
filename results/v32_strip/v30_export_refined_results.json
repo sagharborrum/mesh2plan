@@ -102,9 +102,9 @@
       ]
     },
     {
-      "name": "Room 4",
+      "name": "Closet",
       "area_m2": 4.3,
-      "type": "room",
+      "type": "closet",
       "polygon": [
         [
           -3.443,
