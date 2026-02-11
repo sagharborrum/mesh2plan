@@ -424,6 +424,37 @@ def make_rectilinear(poly):
         result.append(curr)
     return result
 
+def simplify_polygon(poly, min_edge=0.4):
+    """Remove short edges by merging vertices."""
+    if len(poly) < 4:
+        return poly
+    changed = True
+    while changed and len(poly) > 3:
+        changed = False
+        new_poly = []
+        skip = set()
+        for i in range(len(poly)):
+            if i in skip:
+                continue
+            j = (i + 1) % len(poly)
+            dx = abs(poly[j][0] - poly[i][0])
+            dz = abs(poly[j][1] - poly[i][1])
+            edge_len = max(dx, dz)  # rectilinear distance
+            if edge_len < min_edge and len(poly) - len(skip) > 3:
+                # Merge: keep the coordinate that maintains rectilinearity
+                # with the previous and next edges
+                prev = poly[(i - 1) % len(poly)]
+                nxt = poly[(j + 1) % len(poly)]
+                # Keep the vertex that's more aligned with its neighbors
+                new_poly.append([poly[j][0] if abs(poly[j][0] - nxt[0]) < 0.01 else poly[i][0],
+                                 poly[j][1] if abs(poly[j][1] - nxt[1]) < 0.01 else poly[i][1]])
+                skip.add(j)
+                changed = True
+            else:
+                new_poly.append(poly[i])
+        poly = new_poly
+    return poly
+
 def remove_collinear(poly):
     if len(poly) < 3: return poly
     cleaned = [poly[0]]
@@ -807,39 +838,77 @@ def main():
         rooms_data = extract_and_merge_rooms(cut_mask, density_img, x_min, z_min, cs,
                                               x_walls, z_walls, valid_x, valid_z, target_rooms=5)
     else:
-        # Single room mode — use entire mask
+        # Single room mode — use mask to detect room shape
         print("Single room mode — no cuts")
         valid_x, valid_z = [], []
-        mask_u8 = room_mask.astype(np.uint8)
         
-        # Build single room polygon using contour
-        contours, _ = cv2.findContours(mask_u8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        if contours:
-            contour = max(contours, key=cv2.contourArea)
-            epsilon = max(3, int(0.15 / cs))
-            approx = cv2.approxPolyDP(contour, epsilon, True)
-            
-            def snap(val, positions, max_snap=0.25):
-                if len(positions) == 0: return val
-                dists = np.abs(np.array(positions) - val)
-                idx = np.argmin(dists)
-                return float(positions[idx]) if dists[idx] < max_snap else val
-            
-            poly = []
-            for pt in approx.reshape(-1, 2):
-                wx = snap(x_min + pt[0] * cs, x_walls)
-                wz = snap(z_min + pt[1] * cs, z_walls)
-                poly.append([wx, wz])
-            
-            poly = make_rectilinear(poly)
-            poly = remove_collinear(poly)
+        # Find room bounds using density percentiles (more accurate than mask extent)
+        dr, dc = np.where(density_img > 0)
+        if len(dr) > 0:
+            x0 = x_min + np.percentile(dc, 1) * cs
+            x1 = x_min + np.percentile(dc, 99) * cs
+            z0 = z_min + np.percentile(dr, 1) * cs
+            z1 = z_min + np.percentile(dr, 99) * cs
         else:
             rows, cols = np.where(room_mask)
             x0 = x_min + cols.min() * cs
             x1 = x_min + cols.max() * cs
             z0 = z_min + rows.min() * cs
             z1 = z_min + rows.max() * cs
-            poly = [[x0,z0],[x1,z0],[x1,z1],[x0,z1]]
+        
+        def snap(val, positions, max_snap=0.25):
+            if len(positions) == 0: return val
+            dists = np.abs(np.array(positions) - val)
+            idx = np.argmin(dists)
+            return float(positions[idx]) if dists[idx] < max_snap else val
+        
+        x0 = snap(x0, x_walls); x1 = snap(x1, x_walls)
+        z0 = snap(z0, z_walls); z1 = snap(z1, z_walls)
+        
+        # Check if L-shaped: look at fill ratio of bounding box
+        rows, cols = np.where(room_mask)
+        bbox_area = (cols.max()-cols.min()+1) * (rows.max()-rows.min()+1)
+        fill_ratio = len(rows) / max(1, bbox_area)
+        
+        if fill_ratio > 0.80:
+            # Nearly rectangular
+            poly = [[x0,z0], [x1,z0], [x1,z1], [x0,z1]]
+        else:
+            # L-shaped: find the missing corner quadrant
+            mid_x_px = (cols.min() + cols.max()) // 2
+            mid_z_px = (rows.min() + rows.max()) // 2
+            
+            # Check density in each quadrant
+            quads = {
+                'TL': room_mask[mid_z_px:rows.max()+1, cols.min():mid_x_px+1].sum(),
+                'TR': room_mask[mid_z_px:rows.max()+1, mid_x_px:cols.max()+1].sum(),
+                'BL': room_mask[rows.min():mid_z_px+1, cols.min():mid_x_px+1].sum(),
+                'BR': room_mask[rows.min():mid_z_px+1, mid_x_px:cols.max()+1].sum(),
+            }
+            empty_quad = min(quads, key=quads.get)
+            
+            # Find step position by scanning for density drop
+            mid_x = snap(x_min + mid_x_px * cs, x_walls)
+            mid_z = snap(z_min + mid_z_px * cs, z_walls)
+            
+            # Try to find more precise step using wall positions
+            for xw in sorted(x_walls):
+                if x0 + 0.3 < xw < x1 - 0.3:
+                    mid_x = xw; break
+            for zw in sorted(z_walls):
+                if z0 + 0.3 < zw < z1 - 0.3:
+                    mid_z = zw; break
+            
+            if empty_quad == 'TL':
+                poly = [[x0,z0],[x1,z0],[x1,z1],[mid_x,z1],[mid_x,mid_z],[x0,mid_z]]
+            elif empty_quad == 'TR':
+                poly = [[x0,z0],[x1,z0],[x1,mid_z],[mid_x,mid_z],[mid_x,z1],[x0,z1]]
+            elif empty_quad == 'BL':
+                poly = [[mid_x,z0],[x1,z0],[x1,z1],[x0,z1],[x0,mid_z],[mid_x,mid_z]]
+            elif empty_quad == 'BR':
+                poly = [[x0,z0],[mid_x,z0],[mid_x,mid_z],[x1,mid_z],[x1,z1],[x0,z1]]
+            
+            print(f"  L-shape: empty={empty_quad}, fill={fill_ratio:.2f}, step=({mid_x:.2f},{mid_z:.2f})")
         
         area = compute_polygon_area(poly) if len(poly) >= 3 else np.sum(room_mask) * cs * cs
         rooms_data = [{
