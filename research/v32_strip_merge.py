@@ -777,20 +777,75 @@ def main():
     
     sel_x = select_top(x_scored, 2)
     sel_z = select_top(z_scored, 2)
+    
+    # Single-room detection: if no strong interior walls, don't cut
+    if x_scored: print(f"  Top X wall scores: {[f'{s:.0f}' for _,s,_ in x_scored[:3]]}")
+    if z_scored: print(f"  Top Z wall scores: {[f'{s:.0f}' for _,s,_ in z_scored[:3]]}")
+    mask_area = np.sum(room_mask) * cs * cs
+    # Heuristic: if total mask area < 20m², likely single room
+    # Multiroom apartments are typically > 25m²
+    is_single_room = mask_area < 20.0
+    print(f"  Mask area: {mask_area:.1f}m² → {'single room' if is_single_room else 'multiroom'}")
+    
+    if is_single_room:
+        print(f"  Single room mode — skipping cuts")
+        sel_x = []; sel_z = []
+    
     print(f"  Selected cuts: X={[f'{w:.2f}' for w in sel_x]}, Z={[f'{w:.2f}' for w in sel_z]}")
     
-    sel_x_arr = np.array(sorted(sel_x))
-    sel_z_arr = np.array(sorted(sel_z))
-    sel_x_str = np.array([next(s for w,s,_ in x_scored if w==xw) for xw in sel_x_arr])
-    sel_z_str = np.array([next(s for w,s,_ in z_scored if w==zw) for zw in sel_z_arr])
-    
-    cut_mask, valid_x, valid_z = cut_mask_with_walls(
-        room_mask, density_img, x_min, z_min, cs,
-        sel_x_arr, sel_z_arr, sel_x_str, sel_z_str, min_wall_run=0.5)
-    
-    print("Extracting rooms...")
-    rooms_data = extract_and_merge_rooms(cut_mask, density_img, x_min, z_min, cs,
-                                          x_walls, z_walls, valid_x, valid_z, target_rooms=5)
+    if sel_x or sel_z:
+        sel_x_arr = np.array(sorted(sel_x))
+        sel_z_arr = np.array(sorted(sel_z))
+        sel_x_str = np.array([next(s for w,s,_ in x_scored if w==xw) for xw in sel_x_arr]) if len(sel_x_arr) else np.array([])
+        sel_z_str = np.array([next(s for w,s,_ in z_scored if w==zw) for zw in sel_z_arr]) if len(sel_z_arr) else np.array([])
+        
+        cut_mask, valid_x, valid_z = cut_mask_with_walls(
+            room_mask, density_img, x_min, z_min, cs,
+            sel_x_arr, sel_z_arr, sel_x_str, sel_z_str, min_wall_run=0.5)
+        
+        print("Extracting rooms...")
+        rooms_data = extract_and_merge_rooms(cut_mask, density_img, x_min, z_min, cs,
+                                              x_walls, z_walls, valid_x, valid_z, target_rooms=5)
+    else:
+        # Single room mode — use entire mask
+        print("Single room mode — no cuts")
+        valid_x, valid_z = [], []
+        mask_u8 = room_mask.astype(np.uint8)
+        
+        # Build single room polygon using contour
+        contours, _ = cv2.findContours(mask_u8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if contours:
+            contour = max(contours, key=cv2.contourArea)
+            epsilon = max(3, int(0.15 / cs))
+            approx = cv2.approxPolyDP(contour, epsilon, True)
+            
+            def snap(val, positions, max_snap=0.25):
+                if len(positions) == 0: return val
+                dists = np.abs(np.array(positions) - val)
+                idx = np.argmin(dists)
+                return float(positions[idx]) if dists[idx] < max_snap else val
+            
+            poly = []
+            for pt in approx.reshape(-1, 2):
+                wx = snap(x_min + pt[0] * cs, x_walls)
+                wz = snap(z_min + pt[1] * cs, z_walls)
+                poly.append([wx, wz])
+            
+            poly = make_rectilinear(poly)
+            poly = remove_collinear(poly)
+        else:
+            rows, cols = np.where(room_mask)
+            x0 = x_min + cols.min() * cs
+            x1 = x_min + cols.max() * cs
+            z0 = z_min + rows.min() * cs
+            z1 = z_min + rows.max() * cs
+            poly = [[x0,z0],[x1,z0],[x1,z1],[x0,z1]]
+        
+        area = compute_polygon_area(poly) if len(poly) >= 3 else np.sum(room_mask) * cs * cs
+        rooms_data = [{
+            'name': 'Room', 'polygon': poly, 'area': area,
+            'type': 'room', 'mask': room_mask,
+        }]
     
     for rd in rooms_data:
         print(f"  {rd['name']}: {rd['area']:.1f}m² ({rd['type']}) poly={len(rd['polygon'])}v")
