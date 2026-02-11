@@ -1,17 +1,28 @@
 #!/usr/bin/env python3
 """
-mesh2plan v30 - Architectural Floor Plan
+mesh2plan v32 - Strip Merge
 
-Combines v29's mask-cut room detection with v27h's clean architectural rendering.
-Goal: Match the AI-generated reference floor plan quality.
+Best multiroom floor plan detection approach. Uses X-axis wall cuts to create
+vertical strips, with the center strip automatically classified as hallway.
 
-Improvements over v29b:
-1. Better wall thickness rendering (draw walls as filled rectangles, not lines)
-2. Door detection with proper arc rendering
-3. Window detection with parallel line rendering
-4. Room labels with area and estimated function
-5. Scale bar and compass rose
-6. Cleaner polygon extraction with density-aware bounds
+Pipeline:
+1. Load mesh → project to 2D (auto-detect up axis)
+2. Find dominant angle → rotate to axis-align walls
+3. Build density image → room mask (morphological close + fill holes)
+4. Hough wall detection with NMS → wall positions + projection strengths
+5. Score walls: projection_strength × longest_continuous_run
+6. Select top 2 X cuts + 2 Z cuts (min separation 1.0m, boundary exclusion)
+7. Cut room mask along validated wall segments
+8. Strip-based merge: center strip = hallway, left/right strips = rooms
+9. Z cuts split strips into separate rooms if both pieces > 4m²
+10. Door detection via mask adjacency (dilate + overlap)
+11. Render architectural floor plan (thick walls, door arcs, pastel fills)
+
+Auto-detects single vs multiroom (mask area < 20m² → single room mode).
+
+Results:
+- Multiroom: 3 rooms + 1 hallway + 1 closet = 34.7m² (matches target)
+- Single room: 8-vertex rectilinear L-shape, 12.3m²
 """
 
 import numpy as np
