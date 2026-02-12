@@ -1,0 +1,71 @@
+{
+  "summary": {
+    "coordinate_system": "Y-up",
+    "walls": 4,
+    "doors": 1,
+    "windows": 0,
+    "area_m2": 12.44790568858409,
+    "perimeter_m": 14.086479761942966,
+    "dominant_angle_deg": 5
+  },
+  "walls": [
+    {
+      "axis": "x",
+      "length_m": 2.67,
+      "start": [
+        -0.723,
+        -2.661
+      ],
+      "end": [
+        -0.956,
+        0.001
+      ]
+    },
+    {
+      "axis": "x",
+      "length_m": 3.91,
+      "start": [
+        2.896,
+        -2.329
+      ],
+      "end": [
+        2.556,
+        1.566
+      ]
+    },
+    {
+      "axis": "z",
+      "length_m": 0.85,
+      "start": [
+        0.966,
+        -2.683
+      ],
+      "end": [
+        1.814,
+        -2.609
+      ]
+    },
+    {
+      "axis": "z",
+      "length_m": 1.8,
+      "start": [
+        0.784,
+        0.826
+      ],
+      "end": [
+        2.576,
+        0.983
+      ]
+    }
+  ],
+  "openings": [
+    {
+      "type": "door",
+      "width_m": 0.58,
+      "position": [
+        1.224,
+        0.865
+      ]
+    }
+  ]
+}

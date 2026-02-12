@@ -38,7 +38,7 @@ Result: accurate room shape with walls that are truly square to each other.
 </p>
 <div class="card">
   <h2>Floor Plan (3-panel: Mask → Edges → Result)</h2>
-  <img src="../results/v22_hybrid/v22_export_refined_floorplan.png" alt="v22 hybrid">
+  <img src="results/v22_hybrid/v22_export_refined_floorplan.png" alt="v22 hybrid">
   <div class="stats">
     <div class="stat"><div class="stat-label">Area</div><div class="stat-value">10.7m²</div></div>
     <div class="stat"><div class="stat-label">Target</div><div class="stat-value">10.4m²</div></div>
@@ -53,7 +53,7 @@ Result: accurate room shape with walls that are truly square to each other.
   <pre id="json">Loading...</pre>
 </div>
 <script>
-fetch('../results/v22_hybrid/v22_export_refined_results.json')
+fetch('results/v22_hybrid/v22_export_refined_results.json')
   .then(r=>r.json()).then(d=>document.getElementById('json').textContent=JSON.stringify(d,null,2))
   .catch(()=>document.getElementById('json').textContent='Failed to load');
 </script>

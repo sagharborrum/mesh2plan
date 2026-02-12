@@ -1,0 +1,44 @@
+{
+  "version": "v53b_ransac_dedup",
+  "n_ransac_planes": 15,
+  "n_unique_walls": [
+    4,
+    4
+  ],
+  "wall_angles": [
+    121.0,
+    29.2
+  ],
+  "n_rooms": 7,
+  "total_area_m2": 57.2,
+  "rooms": [
+    {
+      "label": "Hallway",
+      "area_m2": 6.1
+    },
+    {
+      "label": "Closet",
+      "area_m2": 1.4
+    },
+    {
+      "label": "Hallway",
+      "area_m2": 4.8
+    },
+    {
+      "label": "Room",
+      "area_m2": 18.7
+    },
+    {
+      "label": "Hallway",
+      "area_m2": 4.1
+    },
+    {
+      "label": "Room",
+      "area_m2": 14.8
+    },
+    {
+      "label": "Hallway",
+      "area_m2": 7.4
+    }
+  ]
+}

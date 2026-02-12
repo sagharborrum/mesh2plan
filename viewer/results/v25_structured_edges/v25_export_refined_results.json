@@ -1,0 +1,110 @@
+{
+  "summary": {
+    "approach": "v25_structured_edges",
+    "walls": 6,
+    "doors": 2,
+    "windows": 1,
+    "area_m2": 10.2,
+    "perimeter_m": 13.7
+  },
+  "walls": [
+    {
+      "axis": "z",
+      "length_m": 3.53,
+      "start": [
+        -0.734,
+        -2.687
+      ],
+      "end": [
+        2.784,
+        -2.411
+      ]
+    },
+    {
+      "axis": "x",
+      "length_m": 3.31,
+      "start": [
+        2.784,
+        -2.411
+      ],
+      "end": [
+        2.524,
+        0.889
+      ]
+    },
+    {
+      "axis": "z",
+      "length_m": 0.92,
+      "start": [
+        2.524,
+        0.889
+      ],
+      "end": [
+        1.609,
+        0.817
+      ]
+    },
+    {
+      "axis": "x",
+      "length_m": 0.58,
+      "start": [
+        1.609,
+        0.817
+      ],
+      "end": [
+        1.655,
+        0.234
+      ]
+    },
+    {
+      "axis": "z",
+      "length_m": 2.61,
+      "start": [
+        1.655,
+        0.234
+      ],
+      "end": [
+        -0.948,
+        0.03
+      ]
+    },
+    {
+      "axis": "x",
+      "length_m": 2.73,
+      "start": [
+        -0.948,
+        0.03
+      ],
+      "end": [
+        -0.734,
+        -2.687
+      ]
+    }
+  ],
+  "openings": [
+    {
+      "type": "window",
+      "width_m": 1.65,
+      "position": [
+        -1.694,
+        -2.763
+      ]
+    },
+    {
+      "type": "door",
+      "width_m": 0.74,
+      "position": [
+        1.235,
+        0.788
+      ]
+    },
+    {
+      "type": "door",
+      "width_m": 0.57,
+      "position": [
+        1.68,
+        -0.077
+      ]
+    }
+  ]
+}

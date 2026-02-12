@@ -1,0 +1,33 @@
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" width="994" height="851" viewBox="0 0 994 851">
+  <rect width="100%" height="100%" fill="white" />
+  <polygon points="50.0,530.5 187.1,617.9 228.9,606.2 285.5,642.3 386.7,483.4 234.3,420.3 246.8,390.2 414.2,400.0 470.5,311.7 536.0,338.8 553.8,295.9 604.9,215.7 344.9,50.0" fill="#F8F8F8" stroke="black" stroke-width="3" stroke-linejoin="round" />
+  <polygon points="611.4,356.6 626.0,461.1 580.7,532.4 524.1,508.9 444.0,634.5 704.9,800.6 944.4,424.5 676.8,254.0" fill="#F8F8F8" stroke="black" stroke-width="3" stroke-linejoin="round" />
+  <polygon points="413.3,404.6 424.0,427.5 409.1,450.9 409.6,681.2 437.6,637.2 455.8,627.8 581.4,430.7 567.8,409.3 580.2,379.4 472.9,311.0" fill="#F8F8F8" stroke="black" stroke-width="3" stroke-linejoin="round" />
+  <polygon points="238.3,407.5 362.8,486.7 374.4,468.1 396.3,483.0 376.3,531.7 248.2,732.9 347.6,774.1 403.5,686.4 406.7,451.7 420.4,418.7 401.6,397.2 273.6,401.2 251.6,387.2" fill="#F8F8F8" stroke="black" stroke-width="3" stroke-linejoin="round" />
+  <text x="349.5" y="407.9" text-anchor="middle" dominant-baseline="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#333333">Living Room</text>
+  <text x="349.5" y="423.9" text-anchor="middle" dominant-baseline="middle" font-family="Arial, sans-serif" font-size="10" fill="#666666">13.9 m²</text>
+  <text x="639.0" y="496.6" text-anchor="middle" dominant-baseline="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#333333">Bedroom</text>
+  <text x="639.0" y="512.6" text-anchor="middle" dominant-baseline="middle" font-family="Arial, sans-serif" font-size="10" fill="#666666">13.1 m²</text>
+  <text x="475.2" y="476.0" text-anchor="middle" dominant-baseline="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#333333">Hallway 1</text>
+  <text x="475.2" y="492.0" text-anchor="middle" dominant-baseline="middle" font-family="Arial, sans-serif" font-size="10" fill="#666666">3.5 m²</text>
+  <text x="346.2" y="509.7" text-anchor="middle" dominant-baseline="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#333333">Hallway 2</text>
+  <text x="346.2" y="525.7" text-anchor="middle" dominant-baseline="middle" font-family="Arial, sans-serif" font-size="10" fill="#666666">3.1 m²</text>
+  <circle cx="499.7" cy="356.0" r="8" fill="white" stroke="#444444" stroke-width="2" />
+  <circle cx="328.1" cy="474.0" r="8" fill="white" stroke="#444444" stroke-width="2" />
+  <circle cx="455.6" cy="620.8" r="8" fill="white" stroke="#444444" stroke-width="2" />
+  <circle cx="339.4" cy="736.3" r="8" fill="white" stroke="#444444" stroke-width="2" />
+  <circle cx="411.2" cy="536.7" r="8" fill="white" stroke="#444444" stroke-width="2" />
+  <circle cx="478.5" cy="158.6" r="8" fill="white" stroke="#444444" stroke-width="2" />
+  <circle cx="146.0" cy="388.3" r="8" fill="white" stroke="#444444" stroke-width="2" />
+  <circle cx="363.7" cy="239.2" r="8" fill="white" stroke="#444444" stroke-width="2" />
+  <circle cx="781.4" cy="444.1" r="8" fill="white" stroke="#444444" stroke-width="2" />
+  <circle cx="239.8" cy="859.5" r="8" fill="white" stroke="#444444" stroke-width="2" />
+  <circle cx="198.0" cy="586.8" r="8" fill="white" stroke="#444444" stroke-width="2" />
+  <rect x="624.3" y="544.2" width="12" height="4" fill="#2196F3" stroke="none" />
+  <rect x="541.0" y="168.4" width="12" height="4" fill="#2196F3" stroke="none" />
+  <rect x="236.3" y="530.7" width="12" height="4" fill="#2196F3" stroke="none" />
+  <rect x="544.1" y="238.9" width="12" height="4" fill="#2196F3" stroke="none" />
+  <line x1="20" y1="830.5602400585748" x2="120" y2="830.5602400585748" stroke="black" stroke-width="3" />
+  <text x="70.0" y="822.5602400585748" text-anchor="middle" font-family="Arial" font-size="10">1 m</text>
+</svg>

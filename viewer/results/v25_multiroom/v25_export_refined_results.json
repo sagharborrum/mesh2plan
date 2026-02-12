@@ -1,0 +1,158 @@
+{
+  "summary": {
+    "approach": "v25_structured_edges",
+    "walls": 6,
+    "doors": 7,
+    "windows": 2,
+    "area_m2": 33.2,
+    "perimeter_m": 26.1
+  },
+  "walls": [
+    {
+      "axis": "z",
+      "length_m": 7.37,
+      "start": [
+        -1.449,
+        -4.197
+      ],
+      "end": [
+        4.769,
+        -0.236
+      ]
+    },
+    {
+      "axis": "x",
+      "length_m": 4.45,
+      "start": [
+        4.769,
+        -0.236
+      ],
+      "end": [
+        2.378,
+        3.517
+      ]
+    },
+    {
+      "axis": "z",
+      "length_m": 7.03,
+      "start": [
+        2.378,
+        3.517
+      ],
+      "end": [
+        -3.549,
+        -0.259
+      ]
+    },
+    {
+      "axis": "x",
+      "length_m": 1.23,
+      "start": [
+        -3.549,
+        -0.259
+      ],
+      "end": [
+        -4.208,
+        0.775
+      ]
+    },
+    {
+      "axis": "z",
+      "length_m": 0.34,
+      "start": [
+        -4.208,
+        0.775
+      ],
+      "end": [
+        -4.499,
+        0.59
+      ]
+    },
+    {
+      "axis": "x",
+      "length_m": 5.68,
+      "start": [
+        -4.499,
+        0.59
+      ],
+      "end": [
+        -1.449,
+        -4.197
+      ]
+    }
+  ],
+  "openings": [
+    {
+      "type": "door",
+      "width_m": 0.56,
+      "position": [
+        -0.785,
+        -3.774
+      ]
+    },
+    {
+      "type": "window",
+      "width_m": 1.51,
+      "position": [
+        -2.719,
+        0.269
+      ]
+    },
+    {
+      "type": "door",
+      "width_m": 0.46,
+      "position": [
+        -1.747,
+        0.888
+      ]
+    },
+    {
+      "type": "door",
+      "width_m": 1.15,
+      "position": [
+        -0.89,
+        1.434
+      ]
+    },
+    {
+      "type": "window",
+      "width_m": 1.47,
+      "position": [
+        -2.793,
+        -1.446
+      ]
+    },
+    {
+      "type": "door",
+      "width_m": 0.48,
+      "position": [
+        -3.902,
+        0.295
+      ]
+    },
+    {
+      "type": "door",
+      "width_m": 0.88,
+      "position": [
+        -2.421,
+        1.913
+      ]
+    },
+    {
+      "type": "door",
+      "width_m": 1.12,
+      "position": [
+        -1.557,
+        2.464
+      ]
+    },
+    {
+      "type": "door",
+      "width_m": 0.54,
+      "position": [
+        -3.64,
+        -0.758
+      ]
+    }
+  ]
+}

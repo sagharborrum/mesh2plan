@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 699 1197" width="699" height="1197">
+<defs><style>
+  text { font-family: "SF Mono", monospace; fill: #999; font-size: 10px; }
+  .dim { font-size: 11px; fill: #ff6b35; font-weight: bold; }
+  .title { font-size: 16px; fill: #e2e8f0; font-weight: bold; }
+  .info { font-size: 10px; fill: #666; }
+</style></defs>
+<rect width="100%" height="100%" fill="#0a0a14"/>
+<line x1="59" y1="0" x2="59" y2="1197" stroke="#151520" stroke-width="0.5"/>
+<line x1="119" y1="0" x2="119" y2="1197" stroke="#151520" stroke-width="0.5"/>
+<line x1="179" y1="0" x2="179" y2="1197" stroke="#151520" stroke-width="0.5"/>
+<line x1="239" y1="0" x2="239" y2="1197" stroke="#151520" stroke-width="0.5"/>
+<line x1="299" y1="0" x2="299" y2="1197" stroke="#151520" stroke-width="0.5"/>
+<line x1="359" y1="0" x2="359" y2="1197" stroke="#151520" stroke-width="0.5"/>
+<line x1="419" y1="0" x2="419" y2="1197" stroke="#151520" stroke-width="0.5"/>
+<line x1="479" y1="0" x2="479" y2="1197" stroke="#151520" stroke-width="0.5"/>
+<line x1="539" y1="0" x2="539" y2="1197" stroke="#151520" stroke-width="0.5"/>
+<line x1="599" y1="0" x2="599" y2="1197" stroke="#151520" stroke-width="0.5"/>
+<line x1="659" y1="0" x2="659" y2="1197" stroke="#151520" stroke-width="0.5"/>
+<line x1="0" y1="58" x2="699" y2="58" stroke="#151520" stroke-width="0.5"/>
+<line x1="0" y1="118" x2="699" y2="118" stroke="#151520" stroke-width="0.5"/>
+<line x1="0" y1="178" x2="699" y2="178" stroke="#151520" stroke-width="0.5"/>
+<line x1="0" y1="238" x2="699" y2="238" stroke="#151520" stroke-width="0.5"/>
+<line x1="0" y1="298" x2="699" y2="298" stroke="#151520" stroke-width="0.5"/>
+<line x1="0" y1="358" x2="699" y2="358" stroke="#151520" stroke-width="0.5"/>
+<line x1="0" y1="418" x2="699" y2="418" stroke="#151520" stroke-width="0.5"/>
+<line x1="0" y1="478" x2="699" y2="478" stroke="#151520" stroke-width="0.5"/>
+<line x1="0" y1="538" x2="699" y2="538" stroke="#151520" stroke-width="0.5"/>
+<line x1="0" y1="598" x2="699" y2="598" stroke="#151520" stroke-width="0.5"/>
+<line x1="0" y1="658" x2="699" y2="658" stroke="#151520" stroke-width="0.5"/>
+<line x1="0" y1="718" x2="699" y2="718" stroke="#151520" stroke-width="0.5"/>
+<line x1="0" y1="778" x2="699" y2="778" stroke="#151520" stroke-width="0.5"/>
+<line x1="0" y1="838" x2="699" y2="838" stroke="#151520" stroke-width="0.5"/>
+<line x1="0" y1="898" x2="699" y2="898" stroke="#151520" stroke-width="0.5"/>
+<line x1="0" y1="958" x2="699" y2="958" stroke="#151520" stroke-width="0.5"/>
+<line x1="0" y1="1018" x2="699" y2="1018" stroke="#151520" stroke-width="0.5"/>
+<line x1="0" y1="1078" x2="699" y2="1078" stroke="#151520" stroke-width="0.5"/>
+<line x1="0" y1="1138" x2="699" y2="1138" stroke="#151520" stroke-width="0.5"/>
+<path d="M273.1,758.5 L277.1,751.7 L278.9,751.8 L366.8,759.9 L475.8,825.5 L479.2,827.6 L497.6,848.7 L499.2,850.7 L566.1,949.3 L571.4,976.7 L572.6,984.1 L575.6,1043.9 L575.2,1049.2 L574.9,1052.8 L574.7,1054.6 L570.3,1066.9 L552.7,1060.2 L367.1,956.6 L351.5,946.5 L275.8,895.9 L267.8,880.9 L266.3,877.2 L261.0,851.6 L261.7,837.1 Z" fill="#0d1a0d" stroke="#1a3a1a" stroke-width="0.5" opacity="0.6"/>
+<path d="M148.2,526.7 L125.3,316.3 L125.5,314.6 L128.4,300.4 L128.8,298.7 L157.4,214.8 L175.0,170.8 L177.9,165.9 L179.7,166.3 L367.2,274.3 L409.4,315.4 L430.1,346.1 L431.4,348.2 L589.6,911.2 L590.6,915.2 L589.7,918.7 L588.9,922.2 L583.8,928.4 L535.9,983.8 L516.2,1005.1 L465.2,1058.0 L436.1,1088.2 L431.7,1090.9 L365.2,1107.0 L363.5,1106.6 L354.7,1104.6 L351.2,1103.8 L330.1,1098.9 L316.1,1095.7 L293.7,1088.6 L271.9,1063.3 L269.2,1059.0 L267.8,1056.8 L223.0,922.7 L222.1,918.8 Z" fill="#0d1a0d" stroke="#1a3a1a" stroke-width="0.5" opacity="0.6"/>
+<path d="M363.6,777.8 L361.8,818.0 L359.2,821.1 L351.8,821.2 L346.5,820.0 L343.0,819.2 L332.5,816.8 L330.7,816.4 L327.6,813.8 L318.6,796.9 L314.9,788.7 L315.3,787.0 L317.9,783.9 L324.0,781.6 L327.9,780.6 L351.4,775.0 L359.2,773.1 L361.0,773.5 L362.7,773.9 Z" fill="#0d1a0d" stroke="#1a3a1a" stroke-width="0.5" opacity="0.6"/>
+<path d="M376.9,328.3 L371.9,317.9 L371.1,297.4 L370.7,275.1 L371.1,273.3 L373.3,272.0 L383.2,268.8 L395.0,265.9 L396.7,266.3 L398.1,268.5 L403.6,284.5 L406.3,312.9 L405.9,314.6 Z" fill="#0d1a0d" stroke="#1a3a1a" stroke-width="0.5" opacity="0.6"/>
+<line x1="578.2" y1="1082.0" x2="565.0" y2="801.3" stroke="#ff6b35" stroke-width="3.1" stroke-linecap="round" opacity="0.9"/>
+<circle cx="578.2" cy="1082.0" r="3" fill="#ff6b35" opacity="0.6"/>
+<circle cx="565.0" cy="801.3" r="3" fill="#ff6b35" opacity="0.6"/>
+<text x="558" y="942" class="dim" text-anchor="middle" dominant-baseline="middle">4.68m (2)</text>
+<line x1="311.0" y1="499.6" x2="373.2" y2="771.3" stroke="#00d4ff" stroke-width="3.0" stroke-linecap="round" opacity="0.9"/>
+<circle cx="311.0" cy="499.6" r="3" fill="#00d4ff" opacity="0.6"/>
+<circle cx="373.2" cy="771.3" r="3" fill="#00d4ff" opacity="0.6"/>
+<text x="356" y="632" class="dim" text-anchor="middle" dominant-baseline="middle">4.65m (3)</text>
+<line x1="305.4" y1="790.9" x2="256.5" y2="580.6" stroke="#ff3366" stroke-width="3.0" stroke-linecap="round" opacity="0.9"/>
+<circle cx="305.4" cy="790.9" r="3" fill="#ff3366" opacity="0.6"/>
+<circle cx="256.5" cy="580.6" r="3" fill="#ff3366" opacity="0.6"/>
+<text x="267" y="689" class="dim" text-anchor="middle" dominant-baseline="middle">3.60m (3)</text>
+<line x1="506.2" y1="937.3" x2="405.7" y2="911.7" stroke="#66ff99" stroke-width="3.0" stroke-linecap="round" opacity="0.9"/>
+<circle cx="506.2" cy="937.3" r="3" fill="#66ff99" opacity="0.6"/>
+<circle cx="405.7" cy="911.7" r="3" fill="#66ff99" opacity="0.6"/>
+<text x="453" y="938" class="dim" text-anchor="middle" dominant-baseline="middle">1.73m</text>
+<line x1="407.0" y1="1046.3" x2="332.9" y2="1062.8" stroke="#ffcc00" stroke-width="3.0" stroke-linecap="round" opacity="0.9"/>
+<circle cx="407.0" cy="1046.3" r="3" fill="#ffcc00" opacity="0.6"/>
+<circle cx="332.9" cy="1062.8" r="3" fill="#ffcc00" opacity="0.6"/>
+<text x="373" y="1068" class="dim" text-anchor="middle" dominant-baseline="middle">1.27m</text>
+<text x="12" y="24" class="title">mesh2plan v3 (all) — 5 walls</text>
+<text x="12" y="42" class="info">5 walls, total length: 15.9m</text>
+<line x1="12" y1="1176.988" x2="72" y2="1176.988" stroke="white" stroke-width="2"/>
+<line x1="12" y1="1172.988" x2="12" y2="1180.988" stroke="white" stroke-width="1.5"/>
+<line x1="72" y1="1172.988" x2="72" y2="1180.988" stroke="white" stroke-width="1.5"/>
+<text x="42.0" y="1168.988" text-anchor="middle" fill="white" font-size="11px">1m</text>
+</svg>

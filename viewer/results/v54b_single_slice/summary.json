@@ -1,0 +1,12 @@
+{
+  "version": "v54b_single_slice",
+  "slice_y": -1.0,
+  "dominant_angles": [
+    118.5,
+    30.5,
+    13.5
+  ],
+  "n_rooms": 0,
+  "total_area_m2": 0,
+  "rooms": []
+}

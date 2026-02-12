@@ -1,0 +1,28 @@
+{
+  "version": "v54c_multislice",
+  "dominant_angles": [
+    28.5,
+    119.5,
+    42.5,
+    161.5
+  ],
+  "n_rooms": 3,
+  "total_area_m2": 18.1,
+  "rooms": [
+    {
+      "label": "Room",
+      "area_m2": 9.2,
+      "vertices": 9
+    },
+    {
+      "label": "Hallway",
+      "area_m2": 6.9,
+      "vertices": 7
+    },
+    {
+      "label": "Bathroom",
+      "area_m2": 2.0,
+      "vertices": 8
+    }
+  ]
+}

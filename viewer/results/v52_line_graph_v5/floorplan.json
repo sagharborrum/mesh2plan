@@ -1,0 +1,49 @@
+{
+  "approach": "v52_line_graph_v5",
+  "angles_deg": [
+    120.1,
+    32.4
+  ],
+  "wall_segments": 8,
+  "recovered_walls": 2,
+  "rooms": [
+    {
+      "name": "Room 1",
+      "area_m2": 8.0,
+      "type": "room",
+      "vertices": 4
+    },
+    {
+      "name": "Room 2",
+      "area_m2": 11.3,
+      "type": "room",
+      "vertices": 4
+    },
+    {
+      "name": "Room 3",
+      "area_m2": 5.0,
+      "type": "room",
+      "vertices": 9
+    },
+    {
+      "name": "Hallway",
+      "area_m2": 4.6,
+      "type": "hallway",
+      "vertices": 5
+    },
+    {
+      "name": "Hallway 2",
+      "area_m2": 3.6,
+      "type": "hallway",
+      "vertices": 4
+    },
+    {
+      "name": "Closet",
+      "area_m2": 1.8,
+      "type": "closet",
+      "vertices": 4
+    }
+  ],
+  "doors": 6,
+  "total_m2": 34.3
+}

@@ -1,0 +1,50 @@
+{
+  "summary": {
+    "coordinate_system": "Z-up",
+    "walls": 3,
+    "doors": 0,
+    "windows": 0,
+    "area_m2": 3.0392930482471416,
+    "perimeter_m": 7.225737432206264,
+    "dominant_angle_deg": 89
+  },
+  "walls": [
+    {
+      "axis": "x",
+      "length_m": 1.21,
+      "start": [
+        2.135,
+        -2.665
+      ],
+      "end": [
+        0.927,
+        -2.644
+      ]
+    },
+    {
+      "axis": "x",
+      "length_m": 1.35,
+      "start": [
+        2.415,
+        -0.448
+      ],
+      "end": [
+        1.068,
+        -0.425
+      ]
+    },
+    {
+      "axis": "z",
+      "length_m": 2.52,
+      "start": [
+        1.174,
+        -2.658
+      ],
+      "end": [
+        1.218,
+        -0.139
+      ]
+    }
+  ],
+  "openings": []
+}

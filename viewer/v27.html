@@ -39,7 +39,7 @@ h3 { color: #FFA500; margin: 20px 0 10px; }
 <div class="results">
   <div class="card">
     <h2>Floor Plan — Multiroom</h2>
-    <img src="../results/v27_multiroom/v27_export_refined_floorplan.png" alt="multiroom floor plan">
+    <img src="results/v27_multiroom/v27_export_refined_floorplan.png" alt="multiroom floor plan">
     <div class="stats">
       <div class="stat"><div class="stat-label">Rooms</div><div class="stat-value" id="mr-rooms">—</div></div>
       <div class="stat"><div class="stat-label">Total Area</div><div class="stat-value" id="mr-area">—</div></div>
@@ -57,7 +57,7 @@ h3 { color: #FFA500; margin: 20px 0 10px; }
 <div class="results" style="margin-top:10px;">
   <div class="card">
     <h2>Floor Plan — Single Room</h2>
-    <img src="../results/v27_singleroom/v27_export_refined_floorplan.png" alt="single room floor plan">
+    <img src="results/v27_singleroom/v27_export_refined_floorplan.png" alt="single room floor plan">
     <div class="stats">
       <div class="stat"><div class="stat-label">Rooms</div><div class="stat-value" id="sr-rooms">—</div></div>
       <div class="stat"><div class="stat-label">Total Area</div><div class="stat-value" id="sr-area">—</div></div>
@@ -81,16 +81,16 @@ function loadResults(url, jsonId, statsMap) {
     }
   }).catch(()=>document.getElementById(jsonId).textContent='Failed to load');
 }
-loadResults('../results/v27_multiroom/v27_export_refined_results.json','json-mr',{
+loadResults('results/v27_multiroom/v27_export_refined_results.json','json-mr',{
   'mr-rooms':'summary.num_rooms','mr-area':'summary.total_area_m2',
   'mr-walls':'summary.openings','mr-openings':'summary.openings'
 });
-loadResults('../results/v27_singleroom/v27_export_refined_results.json','json-sr',{
+loadResults('results/v27_singleroom/v27_export_refined_results.json','json-sr',{
   'sr-rooms':'summary.num_rooms','sr-area':'summary.total_area_m2',
   'sr-openings':'summary.openings'
 });
 // Fix walls display
-fetch('../results/v27_multiroom/v27_export_refined_results.json').then(r=>r.json()).then(j=>{
+fetch('results/v27_multiroom/v27_export_refined_results.json').then(r=>r.json()).then(j=>{
   document.getElementById('mr-walls').textContent=j.summary.interior_walls_x+j.summary.interior_walls_z;
   document.getElementById('mr-openings').textContent=j.summary.openings;
 });

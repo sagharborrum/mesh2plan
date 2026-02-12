@@ -110,7 +110,7 @@ body { background: #1a1a2e; color: #eee; font-family: system-ui, sans-serif; }
       <h2>Test 1: Small Mesh (48K vertices)</h2>
       <div class="viz-row">
         <div class="viz-image">
-          <img src="../results/v16_tests/test1_visualization.png" alt="Test 1 Results">
+          <img src="results/v16_tests/test1_visualization.png" alt="Test 1 Results">
           <div class="caption">Small mesh: No structural results - analyzing 10 confidence maps</div>
         </div>
       </div>
@@ -120,7 +120,7 @@ body { background: #1a1a2e; color: #eee; font-family: system-ui, sans-serif; }
       <h2>Test 2: Large Mesh (232K vertices)</h2>
       <div class="viz-row">
         <div class="viz-image">
-          <img src="../results/v16_tests/test2_visualization.png" alt="Test 2 Results">
+          <img src="results/v16_tests/test2_visualization.png" alt="Test 2 Results">
           <div class="caption">Large mesh: No structural results - analyzing 10 confidence maps</div>
         </div>
       </div>
@@ -167,10 +167,10 @@ body { background: #1a1a2e; color: #eee; font-family: system-ui, sans-serif; }
 
 <script>
 // Load and display JSON data
-fetch('../results/v16_tests/test1_results.json')
+fetch('results/v16_tests/test1_results.json')
   .then(response => response.json())
   .then(data1 => {
-    return fetch('../results/v16_tests/test2_results.json')
+    return fetch('results/v16_tests/test2_results.json')
       .then(response => response.json())
       .then(data2 => {
         const combined = {

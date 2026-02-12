@@ -1,0 +1,74 @@
+[
+  {
+    "success": true,
+    "area": 2.2203284681815703,
+    "wall_segments": 5,
+    "openings": 1,
+    "method": "voxelization_projection_v10_fixed",
+    "mesh": "small",
+    "approach": "v10_voxelization_projection_corrected"
+  },
+  {
+    "success": true,
+    "area": 7.774838776097867,
+    "wall_segments": 9,
+    "openings": 6,
+    "method": "voxelization_projection_v10_fixed",
+    "mesh": "large",
+    "approach": "v10_voxelization_projection_corrected"
+  },
+  {
+    "success": true,
+    "area": 3.9921398449999987,
+    "wall_segments": 7,
+    "openings": 21,
+    "method": "normal_wall_segmentation_v11_improved_manhattan",
+    "mesh": "small",
+    "approach": "v11_normal_wall_segmentation_improved"
+  },
+  {
+    "success": true,
+    "area": 16.760797914150004,
+    "wall_segments": 5,
+    "openings": 2,
+    "method": "normal_wall_segmentation_v11_improved_manhattan",
+    "mesh": "large",
+    "approach": "v11_normal_wall_segmentation_improved"
+  },
+  {
+    "success": true,
+    "area": 3.0229459270024504,
+    "wall_segments": 8,
+    "openings": 5,
+    "method": "contour_depth_raster_v12_fixed",
+    "mesh": "small",
+    "approach": "v12_contour_depth_raster_corrected"
+  },
+  {
+    "success": true,
+    "area": 7.86846297742686,
+    "wall_segments": 9,
+    "openings": 6,
+    "method": "contour_depth_raster_v12_fixed",
+    "mesh": "large",
+    "approach": "v12_contour_depth_raster_corrected"
+  },
+  {
+    "success": true,
+    "area": 3.920661134399996,
+    "wall_segments": 8,
+    "openings": 0,
+    "method": "hybrid_v11_v12_fixed_v14",
+    "mesh": "small",
+    "approach": "v14_hybrid_walls_openings_corrected"
+  },
+  {
+    "success": true,
+    "area": 13.649951587200013,
+    "wall_segments": 11,
+    "openings": 1280,
+    "method": "hybrid_v11_v12_fixed_v14",
+    "mesh": "large",
+    "approach": "v14_hybrid_walls_openings_corrected"
+  }
+]

@@ -35,7 +35,7 @@ nav a { margin-right: 12px; font-size: 13px; }
 <div class="results">
   <div class="card">
     <h2>Floor Plan</h2>
-    <img src="../results/v24_graphcut/v24_export_refined_floorplan.png" alt="floor plan">
+    <img src="results/v24_graphcut/v24_export_refined_floorplan.png" alt="floor plan">
     <div class="stats">
       <div class="stat"><div class="stat-label">Area</div><div class="stat-value">5.7m²</div></div>
       <div class="stat"><div class="stat-label">Target</div><div class="stat-value">10.4m²</div></div>
@@ -49,7 +49,7 @@ nav a { margin-right: 12px; font-size: 13px; }
   <pre id="json">Loading...</pre>
 </div>
 <script>
-fetch('../results/v24_graphcut/v24_export_refined_results.json')
+fetch('results/v24_graphcut/v24_export_refined_results.json')
   .then(r=>r.json())
   .then(j=>document.getElementById('json').textContent=JSON.stringify(j,null,2))
   .catch(()=>document.getElementById('json').textContent='Failed to load');

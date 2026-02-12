@@ -1,0 +1,49 @@
+{
+  "method": "voxelization_projection_v10",
+  "mesh_file": "data/gdrive_sample/2026_02_09_19_03_38/export_refined.obj",
+  "parameters": {
+    "voxel_size": 0.05,
+    "wall_height_range": [
+      0.3,
+      0.8
+    ]
+  },
+  "room_boundary": [
+    [
+      1.5220400000000005,
+      2.446440000000001
+    ],
+    [
+      0.17203999999999997,
+      1.0964400000000003
+    ],
+    [
+      0.3220400000000003,
+      2.5964400000000003
+    ],
+    [
+      -1.82796,
+      2.0464400000000005
+    ],
+    [
+      -1.9279600000000001,
+      2.7464400000000007
+    ],
+    [
+      -2.42796,
+      2.89644
+    ]
+  ],
+  "openings": [],
+  "room_area_sqm": 1.7962500000000001,
+  "room_area_sqft": 19.334835,
+  "voxel_stats": {
+    "grid_size": [
+      116,
+      51,
+      96
+    ],
+    "occupied_voxels": 54471,
+    "projection_pixels": 1758
+  }
+}

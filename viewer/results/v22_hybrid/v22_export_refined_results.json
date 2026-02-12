@@ -1,0 +1,129 @@
+{
+  "summary": {
+    "approach": "v22_hybrid_mask_hough",
+    "walls": 6,
+    "doors": 3,
+    "windows": 1,
+    "area_m2": 10.7,
+    "perimeter_m": 14.0,
+    "hough_x_walls": [
+      -0.93,
+      2.42
+    ],
+    "hough_z_walls": [
+      -2.62,
+      -2.21,
+      -0.63,
+      0.08,
+      0.71
+    ]
+  },
+  "walls": [
+    {
+      "axis": "z",
+      "length_m": 3.7,
+      "start": [
+        -0.721,
+        -2.685
+      ],
+      "end": [
+        2.963,
+        -2.395
+      ]
+    },
+    {
+      "axis": "x",
+      "length_m": 3.33,
+      "start": [
+        2.963,
+        -2.395
+      ],
+      "end": [
+        2.702,
+        0.921
+      ]
+    },
+    {
+      "axis": "z",
+      "length_m": 1.1,
+      "start": [
+        2.702,
+        0.921
+      ],
+      "end": [
+        1.61,
+        0.835
+      ]
+    },
+    {
+      "axis": "x",
+      "length_m": 0.62,
+      "start": [
+        1.61,
+        0.835
+      ],
+      "end": [
+        1.659,
+        0.214
+      ]
+    },
+    {
+      "axis": "z",
+      "length_m": 2.6,
+      "start": [
+        1.659,
+        0.214
+      ],
+      "end": [
+        -0.933,
+        0.01
+      ]
+    },
+    {
+      "axis": "x",
+      "length_m": 2.7,
+      "start": [
+        -0.933,
+        0.01
+      ],
+      "end": [
+        -0.721,
+        -2.685
+      ]
+    }
+  ],
+  "openings": [
+    {
+      "type": "window",
+      "width_m": 1.65,
+      "position": [
+        -1.694,
+        -2.762
+      ]
+    },
+    {
+      "type": "door",
+      "width_m": 0.43,
+      "position": [
+        2.644,
+        1.656
+      ]
+    },
+    {
+      "type": "door",
+      "width_m": 0.71,
+      "position": [
+        1.247,
+        0.807
+      ]
+    },
+    {
+      "type": "door",
+      "width_m": 0.57,
+      "position": [
+        1.682,
+        -0.077
+      ]
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "method": "v16_confidence_guided",
+  "mesh_file": "data/gdrive_sample/2026_02_09_19_03_38/export_refined.obj",
+  "data_directory": "data/gdrive_sample/2026_02_09_19_03_38",
+  "mesh_stats": {
+    "vertices": 231749,
+    "faces": 448449
+  },
+  "frame_analysis": {
+    "total_frames_analyzed": 20,
+    "available_fields": [
+      "cameraGrain",
+      "frame_index",
+      "intrinsics",
+      "cameraPoseARFrame",
+      "time",
+      "averageVelocity",
+      "projectionMatrix",
+      "averageAngularVelocity",
+      "motionQuality",
+      "exposureDuration"
+    ],
+    "motion_quality_stats": {
+      "mean": 0.8461918294429779,
+      "std": 0.06715329343971921,
+      "min": 0.6782968640327454,
+      "max": 0.9606038928031921
+    },
+    "velocity_stats": {
+      "mean": 0.17504803659394383,
+      "std": 0.11924460415054938,
+      "min": 0.0,
+      "max": 0.33815625309944153
+    },
+    "camera_info": {
+      "intrinsics": [
+        2807.129150390625,
+        0,
+        2012.717529296875,
+        0,
+        2807.129150390625,
+        1506.9385986328125,
+        0,
+        0,
+        1
+      ],
+      "has_projection_matrix": true
+    }
+  },
+  "confidence_analysis": {
+    "file_count": 202,
+    "loaded_count": 10,
+    "resolution": [
+      192,
+      256
+    ],
+    "confidence_distribution": {
+      "mean": 1.8548258463541667,
+      "std": 0.4613851840164383,
+      "percentiles": {
+        "25th": 2.0,
+        "50th": 2.0,
+        "75th": 2.0,
+        "90th": 2.0
+      }
+    }
+  },
+  "structural_extraction": {
+    "wall_regions": 0,
+    "total_wall_area_m2": 0,
+    "total_wall_area_ft2": 0.0,
+    "openings_detected": 0,
+    "total_opening_area_m2": 0,
+    "total_opening_area_ft2": 0.0
+  },
+  "results": {
+    "wall_boundaries": [],
+    "openings": [],
+    "confidence_metadata": {
+      "has_confidence_maps": true,
+      "confidence_maps_used": 10
+    }
+  }
+}

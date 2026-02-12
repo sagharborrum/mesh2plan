@@ -1,0 +1,9 @@
+{
+  "summary": {
+    "approach": "v21_raycasting",
+    "walls": 6,
+    "doors": 3,
+    "windows": 1,
+    "area_m2": 10.407499934285878
+  }
+}

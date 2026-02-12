@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="826" height="933" viewBox="0 0 826 933">
+<rect width="100%" height="100%" fill="white"/>
+<polygon points="120.0,683.2 334.4,683.2 334.4,356.8 120.0,356.8" fill="#E8F5E9" stroke="none"/>
+<polygon points="441.6,683.2 705.6,683.2 705.6,446.4 441.6,446.4" fill="#E3F2FD" stroke="none"/>
+<polygon points="441.6,446.4 334.4,446.4 334.4,284.8 377.6,284.8 377.6,120.0 441.6,120.0" fill="#F5F5F5" stroke="none"/>
+<polygon points="441.6,812.8 705.6,812.8 705.6,683.2 441.6,683.2" fill="#FFF3E0" stroke="none"/>
+<polygon points="120.0,812.8 334.4,812.8 334.4,683.2 120.0,683.2" fill="#EFEBE9" stroke="none"/>
+<line x1="120.0" y1="683.2" x2="334.4" y2="683.2" stroke="black" stroke-width="9.6" stroke-linecap="round"/>
+<line x1="334.4" y1="683.2" x2="334.4" y2="356.8" stroke="black" stroke-width="9.6" stroke-linecap="round"/>
+<line x1="334.4" y1="356.8" x2="120.0" y2="356.8" stroke="black" stroke-width="9.6" stroke-linecap="round"/>
+<line x1="120.0" y1="356.8" x2="120.0" y2="683.2" stroke="black" stroke-width="9.6" stroke-linecap="round"/>
+<line x1="441.6" y1="683.2" x2="705.6" y2="683.2" stroke="black" stroke-width="9.6" stroke-linecap="round"/>
+<line x1="705.6" y1="683.2" x2="705.6" y2="446.4" stroke="black" stroke-width="9.6" stroke-linecap="round"/>
+<line x1="705.6" y1="446.4" x2="441.6" y2="446.4" stroke="black" stroke-width="9.6" stroke-linecap="round"/>
+<line x1="441.6" y1="446.4" x2="441.6" y2="683.2" stroke="black" stroke-width="9.6" stroke-linecap="round"/>
+<line x1="441.6" y1="446.4" x2="334.4" y2="446.4" stroke="black" stroke-width="9.6" stroke-linecap="round"/>
+<line x1="334.4" y1="446.4" x2="334.4" y2="284.8" stroke="black" stroke-width="9.6" stroke-linecap="round"/>
+<line x1="334.4" y1="284.8" x2="377.6" y2="284.8" stroke="black" stroke-width="9.6" stroke-linecap="round"/>
+<line x1="377.6" y1="284.8" x2="377.6" y2="120.0" stroke="black" stroke-width="9.6" stroke-linecap="round"/>
+<line x1="377.6" y1="120.0" x2="441.6" y2="120.0" stroke="black" stroke-width="9.6" stroke-linecap="round"/>
+<line x1="441.6" y1="120.0" x2="441.6" y2="446.4" stroke="black" stroke-width="9.6" stroke-linecap="round"/>
+<line x1="441.6" y1="812.8" x2="705.6" y2="812.8" stroke="black" stroke-width="9.6" stroke-linecap="round"/>
+<line x1="705.6" y1="812.8" x2="705.6" y2="683.2" stroke="black" stroke-width="9.6" stroke-linecap="round"/>
+<line x1="705.6" y1="683.2" x2="441.6" y2="683.2" stroke="black" stroke-width="9.6" stroke-linecap="round"/>
+<line x1="441.6" y1="683.2" x2="441.6" y2="812.8" stroke="black" stroke-width="9.6" stroke-linecap="round"/>
+<line x1="120.0" y1="812.8" x2="334.4" y2="812.8" stroke="black" stroke-width="9.6" stroke-linecap="round"/>
+<line x1="334.4" y1="812.8" x2="334.4" y2="683.2" stroke="black" stroke-width="9.6" stroke-linecap="round"/>
+<line x1="334.4" y1="683.2" x2="120.0" y2="683.2" stroke="black" stroke-width="9.6" stroke-linecap="round"/>
+<line x1="120.0" y1="683.2" x2="120.0" y2="812.8" stroke="black" stroke-width="9.6" stroke-linecap="round"/>
+<text x="227.2" y="512.0" text-anchor="middle" font-family="system-ui" font-size="14" font-weight="bold" fill="#333">Room 1</text>
+<text x="227.2" y="530.0" text-anchor="middle" font-family="system-ui" font-size="11" fill="#666">10.9 m²</text>
+<text x="573.6" y="556.8" text-anchor="middle" font-family="system-ui" font-size="14" font-weight="bold" fill="#333">Room 2</text>
+<text x="573.6" y="574.8" text-anchor="middle" font-family="system-ui" font-size="11" fill="#666">9.8 m²</text>
+<text x="384.5" y="275.7" text-anchor="middle" font-family="system-ui" font-size="14" font-weight="bold" fill="#333">Hallway</text>
+<text x="384.5" y="293.7" text-anchor="middle" font-family="system-ui" font-size="11" fill="#666">4.4 m²</text>
+<text x="573.6" y="740.0" text-anchor="middle" font-family="system-ui" font-size="14" font-weight="bold" fill="#333">Room 3</text>
+<text x="573.6" y="758.0" text-anchor="middle" font-family="system-ui" font-size="11" fill="#666">5.3 m²</text>
+<text x="227.2" y="740.0" text-anchor="middle" font-family="system-ui" font-size="14" font-weight="bold" fill="#333">Closet</text>
+<text x="227.2" y="758.0" text-anchor="middle" font-family="system-ui" font-size="11" fill="#666">4.3 m²</text>
+</svg>

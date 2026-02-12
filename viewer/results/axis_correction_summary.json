@@ -1,0 +1,38 @@
+{
+  "v10": {
+    "test1": {
+      "area_sqm": 2.2203284681815703,
+      "area_sqft": 23.89961563150642,
+      "mesh": "export_refined.obj"
+    },
+    "test2": {
+      "area_sqm": 7.774838776097867,
+      "area_sqft": 83.68836458591743,
+      "mesh": "export_refined.obj"
+    }
+  },
+  "v12": {
+    "test1": {
+      "area_sqm": 3.0229459270024504,
+      "area_sqft": 32.538989958254376,
+      "mesh": "export_refined.obj"
+    },
+    "test2": {
+      "area_sqm": 7.86846297742686,
+      "area_sqft": 84.69613548902272,
+      "mesh": "export_refined.obj"
+    }
+  },
+  "v14": {
+    "test1": {
+      "area_sqm": 3.920661134399996,
+      "area_sqft": 42.201996450681555,
+      "mesh": "export_refined.obj"
+    },
+    "test2": {
+      "area_sqm": 13.649951587200013,
+      "area_sqft": 146.92807888462093,
+      "mesh": "export_refined.obj"
+    }
+  }
+}

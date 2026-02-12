@@ -1,0 +1,512 @@
+{
+  "method": "normal_wall_segmentation_v11_improved_manhattan",
+  "mesh_file": "data/2026_01_13_14_47_59/export_refined.obj",
+  "parameters": {
+    "vertical_threshold": 0.7,
+    "coordinate_system": {
+      "spans": {
+        "X": 1.742,
+        "Y": 2.6961000000000004,
+        "Z": 0.5200900000000006
+      },
+      "up_axis": "Z",
+      "horizontal_axes": [
+        "X",
+        "Y"
+      ]
+    },
+    "dominant_angles": [
+      2.5,
+      87.5,
+      92.5,
+      97.5,
+      102.5,
+      177.5
+    ]
+  },
+  "room_boundary": [
+    [
+      0.84161,
+      -0.9185
+    ],
+    [
+      0.8635,
+      -2.64687
+    ],
+    [
+      1.1165,
+      -2.66048
+    ],
+    [
+      1.1715,
+      -2.66287
+    ],
+    [
+      1.3365,
+      -2.66896
+    ],
+    [
+      1.61133,
+      -2.67867
+    ],
+    [
+      1.6665,
+      -2.6796
+    ],
+    [
+      1.7545,
+      -2.67897
+    ],
+    [
+      1.7875,
+      -2.67843
+    ],
+    [
+      1.9965,
+      -2.65798
+    ],
+    [
+      2.0955,
+      -2.64713
+    ],
+    [
+      2.1065,
+      -2.64548
+    ],
+    [
+      2.2055,
+      -2.6125
+    ],
+    [
+      2.3356,
+      -2.5685
+    ],
+    [
+      2.35343,
+      -2.5575
+    ],
+    [
+      2.3595,
+      -2.54886
+    ],
+    [
+      2.3705,
+      -2.51655
+    ],
+    [
+      2.4915,
+      -1.5785
+    ],
+    [
+      2.5025,
+      -1.4905
+    ],
+    [
+      2.5025,
+      -1.4575
+    ],
+    [
+      2.4255,
+      -0.31242
+    ],
+    [
+      2.41729,
+      -0.3025
+    ],
+    [
+      1.7913,
+      -0.0275
+    ],
+    [
+      1.7655,
+      -0.0165
+    ],
+    [
+      1.3475,
+      -0.0165
+    ],
+    [
+      1.1385,
+      -0.04849
+    ],
+    [
+      1.03951,
+      -0.2035
+    ]
+  ],
+  "wall_segments": [
+    {
+      "start": [
+        0.84161,
+        -0.9185
+      ],
+      "end": [
+        0.8635,
+        -2.64687
+      ],
+      "length": 1.7285086140948211,
+      "angle": 90.72561868103251
+    },
+    {
+      "start": [
+        2.5025,
+        -1.4575
+      ],
+      "end": [
+        2.4255,
+        -0.31242
+      ],
+      "length": 1.1476659820696962,
+      "angle": 93.84701794456194
+    },
+    {
+      "start": [
+        0.8635,
+        -2.64687
+      ],
+      "end": [
+        1.6665,
+        -2.6796
+      ],
+      "length": 0.8036667548804044,
+      "angle": 176.92077209430755
+    },
+    {
+      "start": [
+        1.1385,
+        -0.04849
+      ],
+      "end": [
+        1.7655,
+        -0.0165
+      ],
+      "length": 0.6278155462394985,
+      "angle": 8.702278456667074
+    },
+    {
+      "start": [
+        1.6665,
+        -2.6796
+      ],
+      "end": [
+        2.0955,
+        -2.64713
+      ],
+      "length": 0.4302270341343043,
+      "angle": 0.4101786867648954
+    },
+    {
+      "start": [
+        2.3705,
+        -2.51655
+      ],
+      "end": [
+        2.5025,
+        -1.4905
+      ],
+      "length": 1.034505970258268,
+      "angle": 82.64994630584731
+    },
+    {
+      "start": [
+        1.03951,
+        -0.2035
+      ],
+      "end": [
+        0.84161,
+        -0.9185
+      ],
+      "length": 0.7418823424236487,
+      "angle": 74.5288047483486
+    }
+  ],
+  "openings": [
+    {
+      "type": "window",
+      "position": [
+        1.683,
+        -2.0521849999999997
+      ],
+      "width": 2.0250733312401303,
+      "between_walls": [
+        0,
+        1
+      ],
+      "connection": "end1_start2"
+    },
+    {
+      "type": "window",
+      "position": [
+        1.6445,
+        -1.4796449999999999
+      ],
+      "width": 2.808825520124025,
+      "between_walls": [
+        0,
+        1
+      ],
+      "connection": "end1_end2"
+    },
+    {
+      "type": "window",
+      "position": [
+        1.6335549999999999,
+        -0.61546
+      ],
+      "width": 1.6958892942937047,
+      "between_walls": [
+        0,
+        1
+      ],
+      "connection": "start1_end2"
+    },
+    {
+      "type": "door",
+      "position": [
+        1.2650000000000001,
+        -2.6632350000000002
+      ],
+      "width": 0.8036667548804044,
+      "between_walls": [
+        0,
+        2
+      ],
+      "connection": "end1_end2"
+    },
+    {
+      "type": "window",
+      "position": [
+        0.852555,
+        -1.7826849999999999
+      ],
+      "width": 1.7285086140948211,
+      "between_walls": [
+        0,
+        2
+      ],
+      "connection": "start1_start2"
+    },
+    {
+      "type": "window",
+      "position": [
+        1.2540550000000001,
+        -1.79905
+      ],
+      "width": 1.9447150747860216,
+      "between_walls": [
+        0,
+        2
+      ],
+      "connection": "start1_end2"
+    },
+    {
+      "type": "window",
+      "position": [
+        1.0010000000000001,
+        -1.34768
+      ],
+      "width": 2.6128918126091634,
+      "between_walls": [
+        0,
+        3
+      ],
+      "connection": "end1_start2"
+    },
+    {
+      "type": "window",
+      "position": [
+        1.3145,
+        -1.331685
+      ],
+      "width": 2.7807283824386726,
+      "between_walls": [
+        0,
+        3
+      ],
+      "connection": "end1_end2"
+    },
+    {
+      "type": "door",
+      "position": [
+        0.990055,
+        -0.483495
+      ],
+      "width": 0.9192720338398204,
+      "between_walls": [
+        0,
+        3
+      ],
+      "connection": "start1_start2"
+    },
+    {
+      "type": "door",
+      "position": [
+        1.303555,
+        -0.46749999999999997
+      ],
+      "width": 1.2911919811166734,
+      "between_walls": [
+        0,
+        3
+      ],
+      "connection": "start1_end2"
+    },
+    {
+      "type": "window",
+      "position": [
+        1.617,
+        -2.58171
+      ],
+      "width": 1.5126243097345748,
+      "between_walls": [
+        0,
+        5
+      ],
+      "connection": "end1_start2"
+    },
+    {
+      "type": "window",
+      "position": [
+        2.0460000000000003,
+        -1.49601
+      ],
+      "width": 2.485884581471956,
+      "between_walls": [
+        1,
+        2
+      ],
+      "connection": "end1_end2"
+    },
+    {
+      "type": "door",
+      "position": [
+        2.0845000000000002,
+        -2.06855
+      ],
+      "width": 1.4806837643467292,
+      "between_walls": [
+        1,
+        2
+      ],
+      "connection": "start1_end2"
+    },
+    {
+      "type": "door",
+      "position": [
+        1.782,
+        -0.18045499999999998
+      ],
+      "width": 1.3137838653675116,
+      "between_walls": [
+        1,
+        3
+      ],
+      "connection": "end1_start2"
+    },
+    {
+      "type": "door",
+      "position": [
+        2.0955,
+        -0.16446
+      ],
+      "width": 0.7233039792507711,
+      "between_walls": [
+        1,
+        3
+      ],
+      "connection": "end1_end2"
+    },
+    {
+      "type": "window",
+      "position": [
+        2.134,
+        -0.737
+      ],
+      "width": 1.6185332866518378,
+      "between_walls": [
+        1,
+        3
+      ],
+      "connection": "start1_end2"
+    },
+    {
+      "type": "window",
+      "position": [
+        2.3979999999999997,
+        -1.414485
+      ],
+      "width": 2.2048161050073998,
+      "between_walls": [
+        1,
+        5
+      ],
+      "connection": "end1_start2"
+    },
+    {
+      "type": "door",
+      "position": [
+        2.464,
+        -0.9014599999999999
+      ],
+      "width": 1.1805937008132816,
+      "between_walls": [
+        1,
+        5
+      ],
+      "connection": "end1_end2"
+    },
+    {
+      "type": "door",
+      "position": [
+        2.4364999999999997,
+        -1.987025
+      ],
+      "width": 1.0672445373483999,
+      "between_walls": [
+        1,
+        5
+      ],
+      "connection": "start1_start2"
+    },
+    {
+      "type": "door",
+      "position": [
+        2.0185,
+        -2.598075
+      ],
+      "width": 0.7226349718218733,
+      "between_walls": [
+        2,
+        5
+      ],
+      "connection": "end1_start2"
+    },
+    {
+      "type": "door",
+      "position": [
+        1.4025050000000001,
+        -0.10999999999999999
+      ],
+      "width": 0.7496869213878552,
+      "between_walls": [
+        3,
+        6
+      ],
+      "connection": "end1_start2"
+    }
+  ],
+  "room_area_sqm": 3.9921398449999987,
+  "room_area_sqft": 42.971393291579986,
+  "face_classification": {
+    "floor_faces": 82345,
+    "ceiling_faces": 779,
+    "wall_faces": 11950
+  },
+  "analysis_stats": {
+    "boundary_points_2d": 7705,
+    "boundary_vertices": 27,
+    "wall_segments": 7,
+    "openings": 21,
+    "dominant_angles": 6
+  }
+}
