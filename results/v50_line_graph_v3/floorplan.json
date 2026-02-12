@@ -1,0 +1,42 @@
+{
+  "approach": "v50_line_graph_v3",
+  "angles_deg": [
+    29.4,
+    116.8
+  ],
+  "wall_segments": 6,
+  "rooms": [
+    {
+      "name": "Room 1",
+      "area_m2": 13.4,
+      "type": "room",
+      "vertices": 4
+    },
+    {
+      "name": "Room 2",
+      "area_m2": 8.8,
+      "type": "room",
+      "vertices": 4
+    },
+    {
+      "name": "Bathroom",
+      "area_m2": 4.3,
+      "type": "bathroom",
+      "vertices": 7
+    },
+    {
+      "name": "Bathroom 2",
+      "area_m2": 4.1,
+      "type": "bathroom",
+      "vertices": 6
+    },
+    {
+      "name": "Bathroom 3",
+      "area_m2": 3.7,
+      "type": "bathroom",
+      "vertices": 4
+    }
+  ],
+  "doors": 5,
+  "total_m2": 34.3
+}

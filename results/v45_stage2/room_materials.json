@@ -1,0 +1,62 @@
+{
+  "0": {
+    "painted_wall": 9.250744307857673,
+    "tile": 0.4845465480323827,
+    "wood_door": 4.278170666166195,
+    "window_glass": 50.62146507084787,
+    "metal_appliance": 10.232633527550055,
+    "other": 25.13243987954582,
+    "n_wall_faces": 117223,
+    "inferred_type": "exterior_room"
+  },
+  "1": {
+    "painted_wall": 19.338310642658467,
+    "tile": 0.688039818474601,
+    "wood_door": 28.458498023715418,
+    "window_glass": 7.714829453959888,
+    "metal_appliance": 16.776460254721123,
+    "other": 27.0238618064705,
+    "n_wall_faces": 6831,
+    "inferred_type": "room_with_wood"
+  },
+  "2": {
+    "painted_wall": 79.45403349667227,
+    "tile": 0.554011555620566,
+    "wood_door": 5.810721860601185,
+    "window_glass": 0.5302420829371755,
+    "metal_appliance": 9.590068017260293,
+    "other": 4.060922986908506,
+    "n_wall_faces": 54692,
+    "inferred_type": "general_room"
+  },
+  "3": {
+    "painted_wall": 11.815363417154668,
+    "tile": 0.07272170551536725,
+    "wood_door": 0.13013357829065716,
+    "window_glass": 47.95422360010717,
+    "metal_appliance": 0.24112986565621772,
+    "other": 39.78642783327592,
+    "n_wall_faces": 26127,
+    "inferred_type": "exterior_room"
+  },
+  "4": {
+    "painted_wall": 39.2322479875045,
+    "tile": 2.4498377988705995,
+    "wood_door": 1.3168328727622252,
+    "window_glass": 41.98365973807521,
+    "metal_appliance": 2.9845007809684008,
+    "other": 12.032920821819056,
+    "n_wall_faces": 83230,
+    "inferred_type": "exterior_room"
+  },
+  "5": {
+    "painted_wall": 25.21129893238434,
+    "tile": 0.8340747330960854,
+    "wood_door": 4.715302491103203,
+    "window_glass": 6.861654804270463,
+    "metal_appliance": 21.685943060498218,
+    "other": 40.69172597864769,
+    "n_wall_faces": 8992,
+    "inferred_type": "general_room"
+  }
+}

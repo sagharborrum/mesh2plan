@@ -1,0 +1,48 @@
+{
+  "approach": "v49_line_graph_v2",
+  "angles_deg": [
+    118.6,
+    31.2
+  ],
+  "wall_segments": 8,
+  "rooms": [
+    {
+      "name": "Room 1",
+      "area_m2": 11.3,
+      "type": "room",
+      "vertices": 4
+    },
+    {
+      "name": "Room 2",
+      "area_m2": 9.8,
+      "type": "room",
+      "vertices": 4
+    },
+    {
+      "name": "Bathroom",
+      "area_m2": 3.7,
+      "type": "bathroom",
+      "vertices": 4
+    },
+    {
+      "name": "Closet",
+      "area_m2": 2.6,
+      "type": "closet",
+      "vertices": 6
+    },
+    {
+      "name": "Closet 2",
+      "area_m2": 2.4,
+      "type": "closet",
+      "vertices": 4
+    },
+    {
+      "name": "Bathroom 2",
+      "area_m2": 3.3,
+      "type": "bathroom",
+      "vertices": 4
+    }
+  ],
+  "doors": 4,
+  "total_m2": 33.1
+}
