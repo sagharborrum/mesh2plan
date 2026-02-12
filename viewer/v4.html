@@ -73,7 +73,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
 
-const DATA = '../data/room_scan/2026_02_09_19_03_38/';
+const DATA = 'data/room_scan/2026_02_09_19_03_38/';
 const CC = {
   floor: { h: 0x4CAF50, c: '#4CAF50' }, ceiling: { h: 0x2196F3, c: '#2196F3' },
   wall: { h: 0xFF9800, c: '#FF9800' }, unknown: { h: 0x9C27B0, c: '#9C27B0' },
@@ -129,7 +129,7 @@ mtl.load('textured_output.mtl', mats => {
 function xf(p) { const v = new THREE.Vector3(p[0],p[1],p[2]).sub(meshCenter); v.y -= floorYoff; return v; }
 
 async function load() {
-  const r = await fetch('../output/floorplan_room_v4.json');
+  const r = await fetch('output/floorplan_room_v4.json');
   data = await r.json();
   buildPlanes(data.planes);
   buildUI(data.planes);

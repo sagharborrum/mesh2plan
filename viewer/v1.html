@@ -69,7 +69,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
 
-const DATA = '../data/room_scan/2026_02_09_19_03_38/';
+const DATA = 'data/room_scan/2026_02_09_19_03_38/';
 
 const COLORS = {
   floor:   { hex: 0x4CAF50, css: '#4CAF50' },
@@ -162,7 +162,7 @@ mtlLoader.load('textured_output.mtl', (materials) => {
 
 async function loadPlanes() {
   try {
-    const resp = await fetch('../output/planes_room.json');
+    const resp = await fetch('output/planes_room.json');
     const data = await resp.json();
     buildGeometry(data.planes);
     buildUI(data.planes);
